@@ -137,6 +137,6 @@ schemas/
 
 ## License & Trademark
 
-Licensed under the [Apache License 2.0](LICENSE).
+Licensed under the [Business Source License 1.1](LICENSE). See LICENSE for details.
 
 AEGIS™ and **"Capability without constraint is not intelligence™"** are trademarks of **Finnoybu IP LLC**.
