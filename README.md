@@ -12,7 +12,7 @@
   <a href="https://aegis-platform.net"><img src="https://img.shields.io/badge/domain-aegis--platform.net-0084e7?style=flat-square" alt="Domain"></a>
   <img src="https://img.shields.io/badge/build-passing-brightgreen?style=flat-square" alt="Build">
   <img src="https://img.shields.io/badge/coverage-tracked-blue?style=flat-square" alt="Coverage">
-  <a href="LICENSE"><img src="https://img.shields.io/badge/license-Apache%202.0-green?style=flat-square" alt="License"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-BSL--1.1-blue?style=flat-square" alt="License"></a>
   <img src="https://img.shields.io/badge/ip--owner-Finnoybu%20IP%20LLC-blueviolet?style=flat-square" alt="IP Owner">
 </p>
 
