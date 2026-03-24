@@ -1,6 +1,31 @@
-Copyright (c) 2026 Finnoybu IP LLC. All rights reserved.
+Business Source License 1.1
 
-This repository is proprietary intellectual property of Finnoybu IP LLC.
-Unauthorized copying, distribution, or use of this software is strictly prohibited.
+Parameters
 
-AEGIS™ and "Capability without constraint is not intelligence™" are trademarks of Finnoybu IP LLC.
+Licensor:             Finnoybu IP LLC
+Licensed Work:        AEGIS Core [version]
+                      The Licensed Work is (c) 2026 Finnoybu IP LLC.
+Additional Use Grant: You may make production use of the Licensed Work,
+                      provided that you do not use the Licensed Work for
+                      a Governance Service.
+
+                      A "Governance Service" is a commercial offering that
+                      allows third parties to access the functionality of
+                      the Licensed Work as a managed or hosted service,
+                      where the service provides AI governance evaluation
+                      as its primary function.
+
+Change Date:          Four years from the date of each release of the
+                      Licensed Work.
+
+Change License:       Apache License, Version 2.0
+
+For information about alternative licensing arrangements, including
+commercial licenses for hosted service use, contact:
+licensing@aegis-initiative.com
+
+Notice
+
+The Business Source License (this document, or the "License") is not
+an Open Source license. However, the Licensed Work will eventually be
+made available under an Open Source License, as stated in this License.
