@@ -9,7 +9,7 @@
 
 <p align="center">
   <a href="https://github.com/aegis-initiative"><img src="https://img.shields.io/badge/org-aegis--initiative-0084e7?style=flat-square&logo=github" alt="Org"></a>
-  <a href="https://aegissystems.app"><img src="https://img.shields.io/badge/domain-aegissystems.app-0084e7?style=flat-square" alt="Domain"></a>
+  <a href="https://aegis-platform.net"><img src="https://img.shields.io/badge/domain-aegis--platform.net-0084e7?style=flat-square" alt="Domain"></a>
   <img src="https://img.shields.io/badge/build-passing-brightgreen?style=flat-square" alt="Build">
   <img src="https://img.shields.io/badge/coverage-tracked-blue?style=flat-square" alt="Coverage">
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-Apache%202.0-green?style=flat-square" alt="License"></a>
