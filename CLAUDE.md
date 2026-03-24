@@ -7,7 +7,7 @@ The AEGIS governance enforcement engine — a dual-language runtime that evaluat
 - GitHub Org: github.com/aegis-initiative
 - IP Owner: Finnoybu IP LLC
 - Parent Ecosystem: Finnoybu Holdings LLC
-- Domain: aegissystems.app
+- Domain: aegis-platform.net
 
 ## This Repo's Role
 aegis-core is the computational heart of AEGIS. It implements the AEGIS Governance Protocol (AGP-1) message processing pipeline: receiving ACTION_PROPOSE messages from governed AI systems, evaluating them against registered policies and risk models, and returning DECISION_RESPONSE messages with approve/deny/escalate verdicts. It is consumed by aegis-platform as a library and is independently testable.
