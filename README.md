@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="assets/AEGIS_logo_aegis-core.svg" width="80" alt="AEGIS™ Core">
+  <img src="assets/AEGIS_logo_aegis-core.svg" width="80" alt="AEGIS Core">
 </p>
 
 <p align="center">
@@ -32,7 +32,7 @@
 AI Agent
    │
    ▼ ACTION_PROPOSE
-AEGIS™ Governance Gateway       ← aegis-core entry point
+AEGIS Governance Gateway       ← aegis-core entry point
    │
    ▼
 Decision Engine
