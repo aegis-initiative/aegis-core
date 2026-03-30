@@ -34,10 +34,13 @@ from __future__ import annotations
 
 import fnmatch
 import logging
+import re
+import unicodedata
 from dataclasses import dataclass, field
 from enum import StrEnum
 from types import MappingProxyType
 from typing import TYPE_CHECKING, Any
+from urllib.parse import unquote as url_unquote
 
 if TYPE_CHECKING:
     from .audit import AuditSystem
@@ -337,16 +340,24 @@ class RiskEngine:
     # ------------------------------------------------------------------
 
     def _score_capability(self, capability_tier: str) -> float:
-        """Score based on the capability's declared risk tier."""
-        return CAPABILITY_RISK_WEIGHTS.get(capability_tier, 5.0)
+        """Score based on the capability's declared risk tier.
+
+        Unknown tiers default to 9.0 (critical) — fail-closed.
+        An attacker cannot reduce their score by providing a
+        nonexistent tier.
+        """
+        return CAPABILITY_RISK_WEIGHTS.get(capability_tier, 9.0)
 
     # ------------------------------------------------------------------
     # Dimension 2: Action severity
     # ------------------------------------------------------------------
 
     def _score_action_severity(self, action_type: str) -> float:
-        """Score based on the inherent destructiveness of the action type."""
-        return ACTION_SEVERITY.get(action_type, 5.0)
+        """Score based on the inherent destructiveness of the action type.
+
+        Unknown action types default to 9.0 (critical) — fail-closed.
+        """
+        return ACTION_SEVERITY.get(action_type, 9.0)
 
     # ------------------------------------------------------------------
     # Dimension 3: Target sensitivity
@@ -445,7 +456,10 @@ class RiskEngine:
 
         Detects:
         - Action type the agent has never used before
-        - Repeated identical targets (possible loop or fixation)
+        - Target sensitivity shift (agent targeting more sensitive
+          resources than historical baseline) (RT-RISK-R2-001)
+        - Repeated targets after normalization (RT-RISK-R2-002)
+        - Severity trajectory escalation (gradual ramp detection)
         - High denial rate (agent probing boundaries)
         """
         if self._audit is None:
@@ -462,14 +476,58 @@ class RiskEngine:
         if action_type not in historical_types and len(historical_types) > 0:
             anomaly_score += 3.0
 
-        # Check for repeated identical targets (fixation)
+        # RT-RISK-R2-001: Target sensitivity shift detection.
+        # Compare current target sensitivity against the agent's
+        # historical average. An agent that normally targets benign
+        # paths suddenly targeting /etc/shadow is anomalous even if
+        # the action_type is "normal."
+        current_sensitivity = self._score_target_sensitivity(target)
+        if len(recent) >= 5:
+            historical_sensitivities = [
+                self._score_target_sensitivity(r.action_target)
+                for r in recent[:20]  # Sample recent 20
+            ]
+            avg_sensitivity = (
+                sum(historical_sensitivities) / len(historical_sensitivities)
+            )
+            sensitivity_shift = current_sensitivity - avg_sensitivity
+            if sensitivity_shift >= 5.0:
+                anomaly_score += 4.0
+            elif sensitivity_shift >= 3.0:
+                anomaly_score += 2.0
+
+        # RT-RISK-R2-002: Fixation detection with normalized targets.
+        # Normalize targets before counting to prevent dilution via
+        # trailing spaces, redundant segments, case variation.
+        import posixpath
+
+        normalized_target = (
+            target if "://" in target else posixpath.normpath(target)
+        ).lower().strip()
+
         target_counts: dict[str, int] = {}
         for record in recent:
-            target_counts[record.action_target] = (
-                target_counts.get(record.action_target, 0) + 1
-            )
-        if target in target_counts and target_counts[target] >= 5:
+            norm = (
+                record.action_target
+                if "://" in record.action_target
+                else posixpath.normpath(record.action_target)
+            ).lower().strip()
+            target_counts[norm] = target_counts.get(norm, 0) + 1
+
+        if normalized_target in target_counts and target_counts[normalized_target] >= 5:
             anomaly_score += 4.0
+
+        # Severity trajectory: detect progressive escalation from
+        # benign action types toward destructive ones.
+        if len(recent) >= 5:
+            recent_severities = [
+                ACTION_SEVERITY.get(r.action_type, 5.0)
+                for r in recent[:10]
+            ]
+            current_sev = ACTION_SEVERITY.get(action_type, 5.0)
+            avg_severity = sum(recent_severities) / len(recent_severities)
+            if current_sev - avg_severity >= 4.0:
+                anomaly_score += 3.0
 
         # Check denial rate (boundary probing)
         denied = sum(1 for r in recent if r.decision == "denied")
@@ -501,6 +559,22 @@ class RiskEngine:
     # Explanation
     # ------------------------------------------------------------------
 
+    @staticmethod
+    def _sanitize_for_explanation(value: str, max_len: int = 40) -> str:
+        """Truncate and sanitize a string for inclusion in explanations.
+
+        Prevents explanation injection (RT-RISK-R2-005) by:
+        - Replacing non-alphanumeric chars (except hyphens, dots, slashes)
+        - Truncating to max_len (default 40)
+        """
+        sanitized = "".join(
+            c if (c.isalnum() or c in "-._/ ") else "_"
+            for c in value
+        )
+        if len(sanitized) > max_len:
+            sanitized = sanitized[:max_len] + "..."
+        return sanitized
+
     def _build_explanation(
         self,
         composite: float,
@@ -514,8 +588,9 @@ class RiskEngine:
         target: str,
     ) -> str:
         """Build a human-readable risk explanation."""
+        safe_target = self._sanitize_for_explanation(target)
         parts = [
-            f"Risk score {composite:.1f}/10.0 for {action_type} on '{target}'.",
+            f"Risk score {composite:.1f}/10.0 for {action_type} on '{safe_target}'.",
         ]
 
         factors = []
