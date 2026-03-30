@@ -216,23 +216,26 @@ class TestThresholdGaming:
 
     @pytest.mark.atx1(technique_id="T2001")
     def test_amplifier_boundary_at_6_99(self, runtime: AEGISRuntime):
-        """Action severity 6.99 avoids the >= 7.0 amplifier."""
+        """file_write to /etc/shadow now triggers the amplifier.
+
+        ROUND 3 BLUE FIX (BT-R3-018): Amplifier redesigned to fire when
+        EITHER dimension >= 7.0 (was: BOTH >= 7.0). file_write (6.0) to
+        /etc/shadow (9.0) now gets the amplifier boost.
+        """
         engine = RiskEngine()
 
-        # file_write has severity 6.0 — below amplifier threshold
-        # Even with a high-sensitivity target, no amplifier kicks in
         result = engine.assess(
             action_type="file_write",
             target="/etc/shadow",  # target sensitivity 9.0
             agent_id="gamer",
         )
 
-        # RED TEAM FINDING: file_write (6.0) + /etc/shadow (9.0) doesn't
-        # trigger the amplifier because action severity < 7.0
-        assert result.composite_score < 7.0, (
-            f"RT-RISK-003: file_write to /etc/shadow scores "
-            f"{result.composite_score} — below threshold despite "
-            f"writing to a critical system file"
+        # BLUE TEAM FIX VALIDATED: file_write to /etc/shadow now crosses
+        # the confirmation threshold thanks to asymmetric amplifier
+        assert result.composite_score >= 7.0, (
+            f"BT-R3-018: file_write to /etc/shadow scores "
+            f"{result.composite_score} — should exceed confirmation "
+            f"threshold with redesigned amplifier"
         )
 
 

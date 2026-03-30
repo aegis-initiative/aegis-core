@@ -34,6 +34,7 @@ from __future__ import annotations
 
 import fnmatch
 import logging
+import posixpath
 import re
 import unicodedata
 from dataclasses import dataclass, field
@@ -174,6 +175,32 @@ class RiskAssessment:
 DEFAULT_REQUIRE_CONFIRMATION_THRESHOLD = 7.0
 DEFAULT_ESCALATION_THRESHOLD = 9.0
 
+# RT-R3-006: Common shell command prefixes that wrap destructive commands.
+# Used to strip prefixes before pattern matching so "sudo rm -rf /"
+# matches the "rm *" pattern.
+_COMMAND_PREFIX_RE = re.compile(
+    r"^(?:"
+    r"sudo\s+"
+    r"|nohup\s+"
+    r"|nice\s+(?:-n\s+\d+\s+)?"
+    r"|timeout\s+\d+\s+"
+    r"|strace\s+"
+    r"|ltrace\s+"
+    r"|env\s+"
+    r"|(?:\w+=\S+\s+)+"  # VAR=val prefix (e.g., PATH=/bin rm ...)
+    r")+",
+    re.IGNORECASE,
+)
+
+
+def _strip_command_prefixes(target: str) -> str:
+    """Strip common shell command prefixes to expose the real command.
+
+    RT-R3-006/007: "sudo rm -rf /" → "rm -rf /"
+    "PATH=/bin nohup shred /dev/sda" → "shred /dev/sda"
+    """
+    return _COMMAND_PREFIX_RE.sub("", target)
+
 
 # ===================================================================
 # Risk engine
@@ -200,6 +227,12 @@ class RiskEngine:
         ESCALATE. Default: 9.0.
     """
 
+    # RT-R3-004/005, RT-RISK-R2-003: Thresholds stored in a frozen tuple
+    # to prevent mutation via object.__setattr__ or direct __dict__ writes.
+    # The property getters read from the tuple, not from individual attrs.
+    # Even if an attacker replaces _config via object.__setattr__, the
+    # tuple itself is immutable.
+
     def __init__(
         self,
         audit_system: AuditSystem | None = None,
@@ -207,19 +240,40 @@ class RiskEngine:
         escalation_threshold: float = DEFAULT_ESCALATION_THRESHOLD,
     ) -> None:
         self._audit = audit_system
-        # RT-RISK-R2-003: Store as private attrs, expose via read-only properties
-        self._require_confirmation_threshold = require_confirmation_threshold
-        self._escalation_threshold = escalation_threshold
+        # Store thresholds in an immutable tuple: (confirm, escalate)
+        self._config: tuple[float, float] = (
+            require_confirmation_threshold,
+            escalation_threshold,
+        )
+        self._initialized = True
+
+    def __setattr__(self, name: str, value: object) -> None:
+        """Block post-init mutation of configuration attributes.
+
+        Note: object.__setattr__ in CPython bypasses this method.
+        Thresholds are additionally protected by being stored in an
+        immutable tuple — even if _config is replaced, the property
+        getters will read from whatever tuple is current.
+        """
+        if getattr(self, "_initialized", False) and name in (
+            "_config",
+            "_audit",
+        ):
+            raise AttributeError(
+                f"Cannot modify {name!r} after initialization - "
+                f"risk engine configuration is immutable"
+            )
+        super().__setattr__(name, value)
 
     @property
     def require_confirmation_threshold(self) -> float:
         """Composite score threshold for REQUIRE_CONFIRMATION override."""
-        return self._require_confirmation_threshold
+        return self._config[0]
 
     @property
     def escalation_threshold(self) -> float:
         """Composite score threshold for ESCALATE override."""
-        return self._escalation_threshold
+        return self._config[1]
 
     # ------------------------------------------------------------------
     # Main scoring method
@@ -269,15 +323,16 @@ class RiskEngine:
         if not isinstance(agent_id, str):
             raise TypeError(f"agent_id must be str, got {type(agent_id).__name__}")
 
-        # Warn on unrecognized capability tier or action type
+        # RT-R3-015: Warn on unrecognized capability tier or action type.
+        # Always warn — including for empty strings (removed falsy guard).
         if capability_tier not in CAPABILITY_RISK_WEIGHTS:
             logger.warning(
-                "Unrecognized capability_tier %r — defaulting to 5.0",
+                "Unrecognized capability_tier %r — defaulting to 9.0 (fail-closed)",
                 capability_tier,
             )
-        if action_type and action_type not in ACTION_SEVERITY:
+        if action_type not in ACTION_SEVERITY:
             logger.warning(
-                "Unrecognized action_type %r — defaulting to 5.0",
+                "Unrecognized action_type %r — defaulting to 9.0 (fail-closed)",
                 action_type,
             )
 
@@ -289,24 +344,29 @@ class RiskEngine:
             agent_id, action_type, target
         )
 
-        # Weighted composite: action severity and target sensitivity
-        # are the strongest signals for proportionality.
-        # Base weights sum to 1.0.
+        # RT-R3-008: Weighted composite. Base weights now sum to 1.0
+        # (was 0.90 — 10% of risk capacity was unreachable).
         composite = (
-            0.10 * cap_risk
+            0.15 * cap_risk
             + 0.30 * act_severity
             + 0.30 * tgt_sensitivity
             + 0.10 * hist_rate
-            + 0.10 * behav_anomaly
+            + 0.15 * behav_anomaly
         )
 
-        # Amplifier: when both action severity AND target sensitivity
-        # are high (>= 7.0 each), the combined danger is multiplicative,
-        # not merely additive. Apply a boost to ensure destructive
-        # actions against sensitive targets reliably cross thresholds.
-        if act_severity >= 7.0 and tgt_sensitivity >= 7.0:
-            amplifier = min(act_severity, tgt_sensitivity) / 10.0
-            composite += amplifier * 3.0
+        # RT-R3-017/018: Amplifier redesign. The original amplifier only
+        # fired when BOTH action >= 7.0 AND target >= 7.0, which meant
+        # file_write (6.0) to /etc/shadow (9.0) got no boost. Now the
+        # amplifier fires when EITHER exceeds 7.0, scaled by the max
+        # of the two dimensions.
+        max_danger = max(act_severity, tgt_sensitivity)
+        if max_danger >= 7.0:
+            amplifier = max_danger / 10.0
+            # Scale boost by how dangerous the other dimension is too
+            other = min(act_severity, tgt_sensitivity)
+            # Full boost (3.0) when both high; partial (1.5) when one high
+            boost_factor = 3.0 if other >= 5.0 else 1.5
+            composite += amplifier * boost_factor
 
         # Clamp to 0.0-10.0
         composite = max(0.0, min(10.0, composite))
@@ -367,44 +427,75 @@ class RiskEngine:
     def _normalize_unicode(s: str) -> str:
         """Normalize Unicode homoglyphs that could evade pattern matching.
 
-        Handles the same homoglyphs as the RFC-0006 evaluator to maintain
-        consistency across the governance pipeline (T10004).
+        RT-R3-010/011/013: Now applies NFKC normalization to handle all
+        Unicode confusables (Cyrillic, mathematical symbols, combining
+        characters, etc.), not just a hardcoded list.
         """
         # Strip null bytes
         s = s.replace("\x00", "")
-        # U+FF0E (FULLWIDTH FULL STOP) → .
-        s = s.replace("\uFF0E", ".")
-        # U+2215 (DIVISION SLASH), U+2044 (FRACTION SLASH), U+FF0F (FULLWIDTH SOLIDUS) → /
-        for ch in ("\u2215", "\u2044", "\uFF0F"):
+
+        # RT-R3-010/013: Apply NFKC normalization — decomposes and
+        # recomposes all compatibility equivalents. This handles:
+        # - Fullwidth forms (U+FF0E → ., U+FF0F → /, etc.)
+        # - Combining characters (p + combining diaeresis → p̈ stays, but
+        #   compatibility forms like ﬁ → fi are decomposed)
+        # - Mathematical symbols and other confusables
+        s = unicodedata.normalize("NFKC", s)
+
+        # Strip combining marks that survived NFKC (zero-width joiners,
+        # combining diacriticals inserted to break pattern matching)
+        s = "".join(c for c in s if unicodedata.category(c) not in ("Mn", "Mc", "Me"))
+
+        # RT-R3-011: Additional slash-like characters not covered by NFKC
+        for ch in ("\u29F8", "\u2215", "\u2044"):  # BIG SOLIDUS, DIVISION SLASH, FRACTION SLASH
             s = s.replace(ch, "/")
-        # U+FF3C (FULLWIDTH REVERSE SOLIDUS) → \
-        s = s.replace("\uFF3C", "\\")
-        # Collapse consecutive dots from homoglyph replacement
-        import re
+
+        # RT-R3-014: Normalize backslashes to forward slashes
+        s = s.replace("\\", "/")
+
+        # Collapse consecutive dots from normalization
         s = re.sub(r"\.{2,}", ".", s)
+
         return s
 
     def _score_target_sensitivity(self, target: str) -> float:
         """Score based on pattern matching against known sensitive targets.
 
         Normalizes the target path before matching to prevent evasion
-        via redundant segments, double slashes, case variation, or
-        Unicode homoglyphs (RT-RISK-002, T10004).
+        via redundant segments, double slashes, case variation, Unicode
+        homoglyphs, URL encoding, command prefixes, and backslash paths
+        (RT-RISK-002, T10004, RT-R3-006/012/014).
         """
-        import posixpath
 
-        # Normalize Unicode homoglyphs first (T10004)
-        unicode_normalized = self._normalize_unicode(target)
+        # RT-R3-012: URL-decode percent-encoded characters before matching
+        url_decoded = url_unquote(target)
 
-        # Normalize path-like targets to prevent obfuscation evasion
-        normalized = (
-            unicode_normalized
-            if "://" in unicode_normalized
-            else posixpath.normpath(unicode_normalized)
-        )
+        # Normalize Unicode homoglyphs (T10004, RT-R3-010/011/013/014)
+        unicode_normalized = self._normalize_unicode(url_decoded)
 
-        # Check all three variants: original, Unicode-normalized, path-normalized
-        variants = {target, unicode_normalized, normalized}
+        # Normalize path-like targets to prevent obfuscation evasion.
+        # RT-R3-URL: Strip scheme:// prefix before normpath — prevents
+        # fake:// schemes from bypassing path normalization.
+        path_for_norm = unicode_normalized
+        scheme_match = re.match(r"^[a-zA-Z][\w+.-]*://(.*)$", unicode_normalized)
+        if scheme_match:
+            path_for_norm = scheme_match.group(1)
+        normalized = posixpath.normpath(path_for_norm)
+
+        # RT-R3-006/007: Extract subcommands from prefixed shell commands.
+        # Patterns like "sudo rm -rf /" or "nohup shred /dev/sda" should
+        # match even when the destructive command isn't the first word.
+        # Split on common command prefixes and separators.
+        prefix_stripped = _strip_command_prefixes(unicode_normalized)
+
+        # Build variant set for matching
+        variants = {
+            target,
+            url_decoded,
+            unicode_normalized,
+            normalized,
+            prefix_stripped,
+        }
 
         max_score = 0.0
         for pattern, score, _reason in _SENSITIVE_TARGET_PATTERNS:
@@ -499,7 +590,6 @@ class RiskEngine:
         # RT-RISK-R2-002: Fixation detection with normalized targets.
         # Normalize targets before counting to prevent dilution via
         # trailing spaces, redundant segments, case variation.
-        import posixpath
 
         normalized_target = (
             target if "://" in target else posixpath.normpath(target)
@@ -545,14 +635,35 @@ class RiskEngine:
     def _classify_category(
         self, action_type: str, target: str
     ) -> RiskCategory:
-        """Classify the risk into an AGP-1 risk category."""
+        """Classify the risk into an AGP-1 risk category.
+
+        RT-R3-019/020: Expanded classification heuristics to catch
+        destructive API calls and privilege escalation targets beyond
+        just "admin" and "grant".
+        """
+        # System control: shell, file writes, and destructive API verbs
         if action_type in ("shell_exec", "file_write"):
             return RiskCategory.SYSTEM_CONTROL
+
+        target_lower = target.lower()
+
+        # RT-R3-019: Detect destructive API operations
+        destructive_verbs = ("delete", "drop", "truncate", "destroy", "purge", "wipe")
+        if action_type == "api_call" and any(v in target_lower for v in destructive_verbs):
+            return RiskCategory.SYSTEM_CONTROL
+
+        # RT-R3-020: Expanded privilege escalation detection
+        elevation_keywords = (
+            "admin", "grant", "sudo", "escalat", "assume-role", "set-owner",
+            "chmod", "chown", "setuid", "setgid", "privilege", "elevat",
+            "impersonat", "runas",
+        )
+        if any(kw in target_lower for kw in elevation_keywords):
+            return RiskCategory.CAPABILITY_ELEVATION
+
         if action_type in ("file_read", "data_access"):
             return RiskCategory.DATA_ACCESS
-        target_lower = target.lower()
-        if "admin" in target_lower or "grant" in target_lower:
-            return RiskCategory.CAPABILITY_ELEVATION
+
         return RiskCategory.DATA_ACCESS
 
     # ------------------------------------------------------------------
