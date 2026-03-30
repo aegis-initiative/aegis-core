@@ -86,7 +86,8 @@ ACTION_SEVERITY: MappingProxyType[str, float] = MappingProxyType({
 # Target sensitivity patterns
 # ===================================================================
 
-_SENSITIVE_TARGET_PATTERNS: list[tuple[str, float, str]] = [
+# RT-RISK-R2-004: Immutable tuple prevents runtime mutation of patterns.
+_SENSITIVE_TARGET_PATTERNS: tuple[tuple[str, float, str], ...] = (
     # (glob pattern, risk score contribution, reason)
     # System-critical paths
     ("/etc/*", 8.0, "system configuration"),
@@ -118,7 +119,7 @@ _SENSITIVE_TARGET_PATTERNS: list[tuple[str, float, str]] = [
     # Network exfiltration
     ("*evil*", 6.0, "suspicious target name"),
     ("*exfiltrat*", 8.0, "exfiltration indicator"),
-]
+)
 
 
 # ===================================================================
@@ -203,8 +204,19 @@ class RiskEngine:
         escalation_threshold: float = DEFAULT_ESCALATION_THRESHOLD,
     ) -> None:
         self._audit = audit_system
-        self.require_confirmation_threshold = require_confirmation_threshold
-        self.escalation_threshold = escalation_threshold
+        # RT-RISK-R2-003: Store as private attrs, expose via read-only properties
+        self._require_confirmation_threshold = require_confirmation_threshold
+        self._escalation_threshold = escalation_threshold
+
+    @property
+    def require_confirmation_threshold(self) -> float:
+        """Composite score threshold for REQUIRE_CONFIRMATION override."""
+        return self._require_confirmation_threshold
+
+    @property
+    def escalation_threshold(self) -> float:
+        """Composite score threshold for ESCALATE override."""
+        return self._escalation_threshold
 
     # ------------------------------------------------------------------
     # Main scoring method
