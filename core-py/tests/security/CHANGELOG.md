@@ -9,6 +9,60 @@ column: ATT&CK (human→systems), ATLAS (human→AI), **ATX-1 / MITRE AEGIS**
 
 ---
 
+## Round 5 — Risk Engine Adversarial Assessment
+
+### Red Team Findings
+
+| ID | Title | Severity | ATX-1 | Status |
+|----|-------|----------|-------|--------|
+| RT-RISK-001 | Obfuscated destructive commands (shred, dd, find -delete) evade patterns | HIGH | T10004 | FIXED (BT-015) |
+| RT-RISK-002 | Path obfuscation (redundant segments, case, double slashes) evades risk | HIGH | T10004 | FIXED (BT-014) |
+| RT-RISK-003 | Amplifier bypass: file_write severity (6.0) below 7.0 threshold | MEDIUM | T2001 | OPEN (accepted) |
+| RT-RISK-004 | Parameter semantics not scored (destructive intent in params) | MEDIUM | T10004 | OPEN (v0.2.0) |
+| RT-RISK-005 | TOOL_CALL wrapping SHELL_EXEC drops severity from 9.0 to 3.0 | MEDIUM | T10004 | OPEN (v0.2.0) |
+| RT-RISK-006 | False positive DoS — all benign commands correctly approved | — | T6002 | VALIDATED (no issue) |
+| RT-RISK-007 | Gradual escalation — stateless per-request scoring | LOW | T2001 | OPEN (v0.2.0) |
+
+### Blue Team Changes
+
+| Change | File | ATX-1 | Finding | Description |
+|--------|------|-------|---------|-------------|
+| BT-014 | `risk.py` | T10004 | RT-RISK-002 | Target sensitivity scorer now normalizes paths via `posixpath.normpath` and uses case-insensitive matching. |
+| BT-015 | `risk.py` | T10004 | RT-RISK-001 | Added sensitive target patterns for `dd`, `shred`, `find -delete`, `wipefs`. |
+
+### Accepted Risks
+
+| Finding | Rationale |
+|---------|-----------|
+| RT-RISK-003 (amplifier bypass) | file_write at 6.0 is below the amplifier threshold by design. Writing to a sensitive path is risky but not inherently destructive — it depends on content. Content analysis is v0.2.0 scope. |
+| RT-RISK-004 (parameter semantics) | Risk engine scores targets, not parameters. Parameter-level semantic analysis requires NLP/pattern matching that is v0.2.0 scope (RFC-0003 policy language). |
+| RT-RISK-005 (TOOL_CALL wrapping) | Action type classification is the caller's responsibility. The tool proxy already classifies as TOOL_CALL. Detecting that a tool wraps a shell is v0.2.0 scope (tool metadata registry). |
+| RT-RISK-007 (gradual escalation) | Per-request scoring is stateless by design. Trajectory analysis requires the behavioral profiling infrastructure (DC-4 in ATM-1), which is v0.2.0 scope. |
+
+### Scoring Model Validation
+
+All 6 scoring matrix tests passed:
+- Scoring monotonicity (shell_exec > file_write > file_read)
+- Target sensitivity monotonicity (/etc/passwd > /tmp/scratch)
+- Capability tier monotonicity (critical > high > medium > low)
+- Score clamped to [0.0, 10.0]
+- Risk category classification correct
+- AGPResponse carries risk_score, risk_category, risk_breakdown
+
+---
+
+## Round 4 — Tier 4 Architectural Decisions
+
+### Blue Team Changes
+
+| Change | File | ATM-1 | ATX-1 | Finding | Description |
+|--------|------|-------|-------|---------|-------------|
+| BT-011 | `decision_engine.py` | AV-2 | T1001, T9001 | RT-001 | Renamed `evaluate()` to `_evaluate()`. Added independent structural validation (defense-in-depth). |
+| BT-012 | `capability_registry.py`, `policy_engine.py` | AV-3 | T8002 | RT-006, RT-010 | Added `freeze()`/`unseal()` governance state locking (SP-3). |
+| BT-013 | `gateway.py` | AV-3 | T5002, T7002 | RT-015, RT-018 | Documented trust boundary: embedder trusted at v0.1.0, transport auth in v0.2.0. |
+
+---
+
 ## Round 3 — Tier 1 + Tier 2 Blue Team Fixes
 
 ### Blue Team Changes
@@ -105,13 +159,14 @@ column: ATT&CK (human→systems), ATLAS (human→AI), **ATX-1 / MITRE AEGIS**
 
 | Metric | Count |
 |--------|-------|
-| Total findings | 24 |
-| Fixed | 12 |
-| Open (v0.2.0 roadmap) | 8 |
-| Open (architectural) | 3 |
-| Open (low priority) | 1 |
-| Blue team changes | 10 |
+| Total findings | 31 (24 core + 7 risk engine) |
+| Fixed | 19 |
+| Open (v0.2.0 roadmap) | 7 |
+| Open (accepted risk) | 4 |
+| Validated (no issue) | 1 |
+| Blue team changes | 15 (BT-001 through BT-015) |
 | ATX-1 techniques covered | 25/29 (86%) |
 | ATM-1 attack vectors covered | 6/7 (AV-6 N/A) |
 | Security properties covered | 5/5 |
-| Test count | 68 security + 187 existing = 255 total |
+| Red/blue team rounds | 5 |
+| Test count | 85 security + 187 existing = 272 total |

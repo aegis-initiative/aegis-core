@@ -100,6 +100,10 @@ _SENSITIVE_TARGET_PATTERNS: list[tuple[str, float, str]] = [
     ("rm -rf *", 9.5, "recursive forced removal"),
     ("format *", 9.0, "disk format"),
     ("mkfs*", 9.0, "filesystem creation"),
+    ("dd if=*", 8.0, "disk-level I/O"),
+    ("shred *", 9.0, "secure file/disk destruction"),
+    ("find * -delete", 8.0, "recursive find-and-delete"),
+    ("wipefs*", 9.0, "filesystem signature wipe"),
     # Credential/secret paths
     ("*.pem", 7.0, "certificate/key file"),
     ("*.key", 7.0, "private key"),
@@ -308,11 +312,25 @@ class RiskEngine:
     # ------------------------------------------------------------------
 
     def _score_target_sensitivity(self, target: str) -> float:
-        """Score based on pattern matching against known sensitive targets."""
+        """Score based on pattern matching against known sensitive targets.
+
+        Normalizes the target path before matching to prevent evasion
+        via redundant segments, double slashes, or case variation
+        (RT-RISK-002).
+        """
+        import posixpath
+
+        # Normalize path-like targets to prevent obfuscation evasion
+        normalized = target if "://" in target else posixpath.normpath(target)
+
         max_score = 0.0
         for pattern, score, _reason in _SENSITIVE_TARGET_PATTERNS:
-            if fnmatch.fnmatch(target, pattern) or fnmatch.fnmatch(
-                target.lower(), pattern.lower()
+            # Match against both original and normalized, case-insensitive
+            if (
+                fnmatch.fnmatch(normalized, pattern)
+                or fnmatch.fnmatch(normalized.lower(), pattern.lower())
+                or fnmatch.fnmatch(target, pattern)
+                or fnmatch.fnmatch(target.lower(), pattern.lower())
             ):
                 max_score = max(max_score, score)
         return max_score
