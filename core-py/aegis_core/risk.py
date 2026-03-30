@@ -33,12 +33,16 @@ Integration with the Decision Engine:
 from __future__ import annotations
 
 import fnmatch
+import logging
 from dataclasses import dataclass, field
 from enum import StrEnum
+from types import MappingProxyType
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from .audit import AuditSystem
+
+logger = logging.getLogger("aegis_core.risk")
 
 # ===================================================================
 # Risk categories (AGP-1 spec)
@@ -58,25 +62,25 @@ class RiskCategory(StrEnum):
 # Risk tiers (RFC-0003: low, medium, high, critical)
 # ===================================================================
 
-CAPABILITY_RISK_WEIGHTS: dict[str, float] = {
+CAPABILITY_RISK_WEIGHTS: MappingProxyType[str, float] = MappingProxyType({
     "low": 1.0,
     "medium": 3.0,
     "high": 6.0,
     "critical": 9.0,
-}
+})
 
 # ===================================================================
 # Action severity (inherent destructiveness by ActionType)
 # ===================================================================
 
-ACTION_SEVERITY: dict[str, float] = {
+ACTION_SEVERITY: MappingProxyType[str, float] = MappingProxyType({
     "shell_exec": 9.0,
     "file_write": 6.0,
     "api_call": 5.0,
     "data_access": 4.0,
     "file_read": 2.0,
     "tool_call": 3.0,
-}
+})
 
 # ===================================================================
 # Target sensitivity patterns
@@ -236,7 +240,32 @@ class RiskEngine:
         RiskAssessment
             Complete risk assessment with composite score, per-dimension
             breakdown, category, and explanation.
+
+        Raises
+        ------
+        TypeError
+            If action_type, target, or agent_id are not strings.
         """
+        # Input validation — reject None and non-string inputs
+        if not isinstance(action_type, str):
+            raise TypeError(f"action_type must be str, got {type(action_type).__name__}")
+        if not isinstance(target, str):
+            raise TypeError(f"target must be str, got {type(target).__name__}")
+        if not isinstance(agent_id, str):
+            raise TypeError(f"agent_id must be str, got {type(agent_id).__name__}")
+
+        # Warn on unrecognized capability tier or action type
+        if capability_tier not in CAPABILITY_RISK_WEIGHTS:
+            logger.warning(
+                "Unrecognized capability_tier %r — defaulting to 5.0",
+                capability_tier,
+            )
+        if action_type and action_type not in ACTION_SEVERITY:
+            logger.warning(
+                "Unrecognized action_type %r — defaulting to 5.0",
+                action_type,
+            )
+
         cap_risk = self._score_capability(capability_tier)
         act_severity = self._score_action_severity(action_type)
         tgt_sensitivity = self._score_target_sensitivity(target)
@@ -311,28 +340,58 @@ class RiskEngine:
     # Dimension 3: Target sensitivity
     # ------------------------------------------------------------------
 
+    @staticmethod
+    def _normalize_unicode(s: str) -> str:
+        """Normalize Unicode homoglyphs that could evade pattern matching.
+
+        Handles the same homoglyphs as the RFC-0006 evaluator to maintain
+        consistency across the governance pipeline (T10004).
+        """
+        # Strip null bytes
+        s = s.replace("\x00", "")
+        # U+FF0E (FULLWIDTH FULL STOP) → .
+        s = s.replace("\uFF0E", ".")
+        # U+2215 (DIVISION SLASH), U+2044 (FRACTION SLASH), U+FF0F (FULLWIDTH SOLIDUS) → /
+        for ch in ("\u2215", "\u2044", "\uFF0F"):
+            s = s.replace(ch, "/")
+        # U+FF3C (FULLWIDTH REVERSE SOLIDUS) → \
+        s = s.replace("\uFF3C", "\\")
+        # Collapse consecutive dots from homoglyph replacement
+        import re
+        s = re.sub(r"\.{2,}", ".", s)
+        return s
+
     def _score_target_sensitivity(self, target: str) -> float:
         """Score based on pattern matching against known sensitive targets.
 
         Normalizes the target path before matching to prevent evasion
-        via redundant segments, double slashes, or case variation
-        (RT-RISK-002).
+        via redundant segments, double slashes, case variation, or
+        Unicode homoglyphs (RT-RISK-002, T10004).
         """
         import posixpath
 
+        # Normalize Unicode homoglyphs first (T10004)
+        unicode_normalized = self._normalize_unicode(target)
+
         # Normalize path-like targets to prevent obfuscation evasion
-        normalized = target if "://" in target else posixpath.normpath(target)
+        normalized = (
+            unicode_normalized
+            if "://" in unicode_normalized
+            else posixpath.normpath(unicode_normalized)
+        )
+
+        # Check all three variants: original, Unicode-normalized, path-normalized
+        variants = {target, unicode_normalized, normalized}
 
         max_score = 0.0
         for pattern, score, _reason in _SENSITIVE_TARGET_PATTERNS:
-            # Match against both original and normalized, case-insensitive
-            if (
-                fnmatch.fnmatch(normalized, pattern)
-                or fnmatch.fnmatch(normalized.lower(), pattern.lower())
-                or fnmatch.fnmatch(target, pattern)
-                or fnmatch.fnmatch(target.lower(), pattern.lower())
-            ):
-                max_score = max(max_score, score)
+            for variant in variants:
+                if (
+                    fnmatch.fnmatch(variant, pattern)
+                    or fnmatch.fnmatch(variant.lower(), pattern.lower())
+                ):
+                    max_score = max(max_score, score)
+                    break  # no need to check other variants for this pattern
         return max_score
 
     # ------------------------------------------------------------------
