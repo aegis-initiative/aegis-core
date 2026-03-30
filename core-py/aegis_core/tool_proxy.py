@@ -29,6 +29,7 @@ Usage::
 from __future__ import annotations
 
 import asyncio
+import functools
 import time
 from collections.abc import Callable
 from dataclasses import dataclass
@@ -353,12 +354,12 @@ class ToolProxy:
 
         # Execute the async tool
         try:
-            loop = asyncio.get_event_loop()
+            loop = asyncio.get_running_loop()
             if asyncio.iscoroutinefunction(fn):
                 result = await asyncio.wait_for(fn(**kwargs), timeout=timeout)
             else:
                 result = await asyncio.wait_for(
-                    loop.run_in_executor(None, fn, **kwargs),
+                    loop.run_in_executor(None, functools.partial(fn, **kwargs)),
                     timeout=timeout,
                 )
             duration_ms = (time.perf_counter() - start_time) * 1000
