@@ -35,6 +35,7 @@ from .capability_registry import CapabilityRegistry
 from .exceptions import AEGISValidationError
 from .policy_engine import PolicyEngine
 from .protocol import ActionType, AGPRequest, AGPResponse, Decision
+from .risk import RiskEngine
 
 
 @dataclass
@@ -93,6 +94,9 @@ class DecisionEngine:
         Engine used for policy evaluation (stage 2).
     audit_system : AuditSystem
         Audit system where every decision is recorded.
+    risk_engine : RiskEngine, optional
+        Risk engine for proportionality assessment (stage 3).
+        If None, a default RiskEngine is created using the audit system.
     """
 
     def __init__(
@@ -100,10 +104,12 @@ class DecisionEngine:
         capability_registry: CapabilityRegistry,
         policy_engine: PolicyEngine,
         audit_system: AuditSystem,
+        risk_engine: RiskEngine | None = None,
     ) -> None:
         self._capabilities = capability_registry
         self._policies = policy_engine
         self._audit = audit_system
+        self._risk = risk_engine or RiskEngine(audit_system=audit_system)
 
         # RT-003 / T2001, RT-007 / T8002: Unified evaluation lock ensures
         # capability check and policy evaluation are atomic - prevents
@@ -278,6 +284,40 @@ class DecisionEngine:
                     self._metrics.policy_denials += 1
 
         # ------------------------------------------------------------------
+        # Stage 3: Risk assessment (proportionality gate, RT-014 / T3001)
+        # ------------------------------------------------------------------
+        risk_assessment = self._risk.assess(
+            action_type=action_type,
+            target=request.action.target,
+            agent_id=request.agent_id,
+            parameters=request.action.parameters,
+        )
+
+        # Proportionality override: if policy approved but risk is too high,
+        # escalate the decision. This ensures destructive actions get human
+        # review even when policy rules technically allow them.
+        if decision == Decision.APPROVED:
+            if risk_assessment.composite_score >= self._risk.escalation_threshold:
+                decision = Decision.ESCALATE
+                reason = (
+                    f"Risk score {risk_assessment.composite_score}/10.0 "
+                    f"exceeds escalation threshold "
+                    f"({self._risk.escalation_threshold}). "
+                    f"{risk_assessment.explanation}"
+                )
+            elif (
+                risk_assessment.composite_score
+                >= self._risk.require_confirmation_threshold
+            ):
+                decision = Decision.REQUIRE_CONFIRMATION
+                reason = (
+                    f"Risk score {risk_assessment.composite_score}/10.0 "
+                    f"exceeds confirmation threshold "
+                    f"({self._risk.require_confirmation_threshold}). "
+                    f"{risk_assessment.explanation}"
+                )
+
+        # ------------------------------------------------------------------
         # Audit (always, regardless of decision)
         # ------------------------------------------------------------------
         audit_id = self._audit.record(
@@ -303,6 +343,9 @@ class DecisionEngine:
             decision=decision,
             reason=reason,
             audit_id=audit_id,
+            risk_score=risk_assessment.composite_score,
+            risk_category=risk_assessment.risk_category.value,
+            risk_breakdown=risk_assessment.score_breakdown,
         )
 
     # ------------------------------------------------------------------

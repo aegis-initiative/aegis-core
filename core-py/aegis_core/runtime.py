@@ -56,6 +56,7 @@ from .capability_registry import CapabilityRegistry
 from .decision_engine import DecisionEngine
 from .gateway import GovernanceGateway
 from .policy_engine import PolicyEngine
+from .risk import RiskEngine
 from .tool_proxy import ToolProxy
 
 
@@ -84,10 +85,12 @@ class AEGISRuntime:
         self._audit = AuditSystem(db_path=db_path)
         self._capabilities = CapabilityRegistry()
         self._policies = PolicyEngine()
+        self._risk = RiskEngine(audit_system=self._audit)
         self._decision_engine = DecisionEngine(
             capability_registry=self._capabilities,
             policy_engine=self._policies,
             audit_system=self._audit,
+            risk_engine=self._risk,
         )
         self._gateway = GovernanceGateway(decision_engine=self._decision_engine)
         self._is_shutdown = False
@@ -162,6 +165,11 @@ class AEGISRuntime:
     def policies(self) -> PolicyEngine:
         """The :class:`~aegis.policy_engine.PolicyEngine`."""
         return self._policies
+
+    @property
+    def risk(self) -> RiskEngine:
+        """The :class:`~aegis.risk.RiskEngine`."""
+        return self._risk
 
     @property
     def audit(self) -> AuditSystem:

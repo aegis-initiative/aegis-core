@@ -297,36 +297,52 @@ class TestPolicyAttacks:
 
     @pytest.mark.atm1(attack_vector="AV-2")
     @pytest.mark.atx1(technique_id="T2001")
-    def test_wildcard_capability_grants_universal_access(self, runtime: AEGISRuntime):
-        """An overly broad capability pattern grants access to everything."""
+    def test_wildcard_capability_grants_broad_access(self, runtime: AEGISRuntime):
+        """Overly broad capability passes capability + policy checks.
+
+        With the risk engine (stage 3), destructive actions are now
+        escalated even with wildcard capabilities. Non-destructive
+        actions still pass through.
+        """
         cap = make_capability(
             cap_id="cap-wildcard",
-            action_types=[a.value for a in ActionType],  # all action types
-            target_patterns=["*"],  # all targets
+            action_types=[a.value for a in ActionType],
+            target_patterns=["*"],
         )
         runtime.capabilities.register(cap)
         runtime.capabilities.grant("greedy-agent", "cap-wildcard")
         runtime.policies.add_policy(make_allow_policy())
 
-        # Agent can now do anything
-        sensitive_actions = [
-            (ActionType.SHELL_EXEC, "rm -rf /"),
-            (ActionType.FILE_WRITE, "/etc/passwd"),
-            (ActionType.API_CALL, "https://evil.com/exfiltrate"),
-            (ActionType.DATA_ACCESS, "database://production/users"),
+        # Non-destructive actions: wildcard still grants access
+        benign_actions = [
+            (ActionType.FILE_READ, "/docs/readme.md"),
+            (ActionType.TOOL_CALL, "list-files"),
+            (ActionType.DATA_ACCESS, "cache://session/data"),
         ]
-
-        for action_type, target in sensitive_actions:
+        for action_type, target in benign_actions:
             request = make_request(
                 agent_id="greedy-agent",
                 action_type=action_type,
                 target=target,
             )
             response = runtime.gateway.submit(request)
-            # RED TEAM FINDING: Wildcard capability grants universal access
             assert response.decision == Decision.APPROVED, (
-                f"Wildcard capability approved {action_type.value} on {target}"
+                f"Benign {action_type.value} on {target} should be approved"
             )
+
+        # Destructive actions: risk engine escalates despite wildcard
+        request = make_request(
+            agent_id="greedy-agent",
+            action_type=ActionType.SHELL_EXEC,
+            target="rm -rf /",
+        )
+        response = runtime.gateway.submit(request)
+        assert response.decision in (
+            Decision.REQUIRE_CONFIRMATION, Decision.ESCALATE,
+        ), (
+            f"Destructive action should be escalated by risk engine "
+            f"(risk_score={response.risk_score})"
+        )
 
 
 # ===================================================================

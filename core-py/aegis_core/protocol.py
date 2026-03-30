@@ -323,6 +323,15 @@ class AGPResponse:
     conditions: list[str] = field(default_factory=list)
     """Optional conditions that must be observed if the action is approved."""
 
+    risk_score: float | None = None
+    """Overall risk score (0.0-10.0). None if risk assessment not performed."""
+
+    risk_category: str | None = None
+    """Risk category: data_access, system_control, capability_elevation, behavioral_anomaly."""
+
+    risk_breakdown: dict[str, float] = field(default_factory=dict)
+    """Per-dimension risk score breakdown for policy trace."""
+
     timestamp: datetime = field(
         default_factory=lambda: datetime.now(UTC)
     )
@@ -336,7 +345,7 @@ class AGPResponse:
         dict
             Serializable dictionary representation.
         """
-        return {
+        result: dict[str, Any] = {
             "request_id": self.request_id,
             "decision": self.decision.value,
             "reason": self.reason,
@@ -344,6 +353,11 @@ class AGPResponse:
             "conditions": self.conditions,
             "timestamp": self.timestamp.isoformat(),
         }
+        if self.risk_score is not None:
+            result["risk_score"] = self.risk_score
+            result["risk_category"] = self.risk_category
+            result["risk_breakdown"] = self.risk_breakdown
+        return result
 
     def to_json(self) -> str:
         """Serialize this response to JSON.
@@ -376,5 +390,8 @@ class AGPResponse:
             reason=data["reason"],
             audit_id=data["audit_id"],
             conditions=data.get("conditions", []),
+            risk_score=data.get("risk_score"),
+            risk_category=data.get("risk_category"),
+            risk_breakdown=data.get("risk_breakdown", {}),
             timestamp=datetime.fromisoformat(data["timestamp"]),
         )

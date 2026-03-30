@@ -188,12 +188,13 @@ class TestTA003_SystemIntegrity:
 
     @pytest.mark.atm1(attack_vector="AV-2")
     @pytest.mark.atx1(technique_id="T3001")
-    def test_t3001_destructive_action_no_proportionality_check(self, runtime: AEGISRuntime):
+    def test_t3001_destructive_action_proportionality_gate(self, runtime: AEGISRuntime):
         """T3001: Perform Irreversible Destructive Action.
 
-        An agent requests a destructive action (SHELL_EXEC rm -rf)
-        and the engine evaluates it the same as any other action —
-        no proportionality gate or reversibility check.
+        ROUND 2: Destructive actions approved identically to benign ones.
+        ROUND 4: Risk engine (stage 3) now applies proportionality gate.
+                 Destructive shell commands against sensitive targets
+                 trigger REQUIRE_CONFIRMATION despite policy ALLOW.
         """
         cap = make_capability(
             cap_id="cap-shell",
@@ -210,6 +211,7 @@ class TestTA003_SystemIntegrity:
             ("format C:", {"confirm": "true"}),
         ]
 
+        # BLUE TEAM FIX VALIDATED: Risk engine escalates destructive actions
         for target, params in destructive_actions:
             request = make_request(
                 agent_id="destructive-agent",
@@ -218,12 +220,23 @@ class TestTA003_SystemIntegrity:
                 parameters=params,
             )
             response = runtime.gateway.submit(request)
-            # RED TEAM FINDING: No proportionality check — destructive
-            # actions evaluated identically to benign ones
-            assert response.decision == Decision.APPROVED, (
-                f"T3001: Destructive action '{target}' approved with no "
-                f"proportionality gate or reversibility check"
+            assert response.decision == Decision.REQUIRE_CONFIRMATION, (
+                f"T3001: Destructive action '{target}' should require "
+                f"confirmation (risk_score={response.risk_score})"
             )
+            assert response.risk_score is not None
+            assert response.risk_score >= 7.0
+
+        # Benign actions should still be APPROVED
+        benign_request = make_request(
+            agent_id="destructive-agent",
+            action_type=ActionType.SHELL_EXEC,
+            target="echo hello",
+        )
+        benign_response = runtime.gateway.submit(benign_request)
+        assert benign_response.decision == Decision.APPROVED, (
+            "Benign shell command should still be approved"
+        )
 
     @pytest.mark.atm1(attack_vector="AV-7")
     @pytest.mark.atx1(technique_id="T3002")
