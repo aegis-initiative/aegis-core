@@ -172,17 +172,27 @@ class GovernanceGateway:
             )
 
         # RT-022 / T10002 + RT-023 / T10003: Sensitive path protection
+        # H-4: Normalize path before matching to prevent traversal evasion
         if action.type == ActionType.FILE_WRITE:
-            target = action.target
+            import posixpath
+
+            raw_target = action.target
+            normalized = posixpath.normpath(raw_target)
+            basename = normalized.rsplit("/", 1)[-1]
+            # Check all variants: raw, normalized, basename
+            variants = {raw_target, normalized, raw_target.lower(),
+                        normalized.lower(), basename, basename.lower()}
             for pattern in _SENSITIVE_PATH_PATTERNS:
-                if fnmatch.fnmatch(target, pattern) or fnmatch.fnmatch(
-                    target.rsplit("/", 1)[-1], pattern
-                ):
-                    raise AEGISValidationError(
-                        f"FILE_WRITE to sensitive path requires escalation: "
-                        f"{target!r} matches protected pattern '{pattern}'",
-                        error_code="SENSITIVE_PATH_WRITE"
-                    )
+                for variant in variants:
+                    if fnmatch.fnmatch(variant, pattern) or fnmatch.fnmatch(
+                        variant, pattern.lower()
+                    ):
+                        raise AEGISValidationError(
+                            f"FILE_WRITE to sensitive path requires "
+                            f"escalation: {raw_target!r} matches "
+                            f"protected pattern '{pattern}'",
+                            error_code="SENSITIVE_PATH_WRITE"
+                        )
 
     # ------------------------------------------------------------------
     # Validation

@@ -109,9 +109,13 @@ class Capability:
         if action_type not in self.action_types:
             return False
         # Normalize the target to prevent path traversal (RT-002 / T10001).
-        # Only normalize path-like targets; skip URI schemes to avoid
-        # collapsing '://' to ':/' (RT-024).
-        normalized_target = target if "://" in target else posixpath.normpath(target)
+        # Only skip normalization for valid URI schemes (M-10).
+        # A valid scheme starts with a letter and contains only letters,
+        # digits, +, -, or . before ://
+        import re
+
+        has_valid_scheme = bool(re.match(r"^[a-zA-Z][a-zA-Z0-9+\-.]*://", target))
+        normalized_target = target if has_valid_scheme else posixpath.normpath(target)
         return any(
             fnmatch.fnmatch(normalized_target, pattern) or pattern == "*"
             for pattern in self.target_patterns
@@ -137,25 +141,51 @@ class CapabilityRegistry:
         self._agent_capabilities: dict[str, set[str]] = {}
         self._lock = threading.Lock()
         self._frozen = False
+        self._seal_token: str | None = None
 
     # ------------------------------------------------------------------
-    # Freeze / unseal (RT-006 / T8002, SP-3)
+    # Freeze / unseal (RT-006 / T8002, SP-3, C-2)
     # ------------------------------------------------------------------
 
-    def freeze(self) -> None:
+    def freeze(self) -> str:
         """Lock the registry against mutations.
 
-        After calling ``freeze()``, any attempt to register, unregister,
-        grant, or revoke raises :class:`AEGISCapabilityError`.  Call
-        :meth:`unseal` to re-enable mutations.
+        Returns a seal token required to unseal.  Without the token,
+        ``unseal()`` raises :class:`AEGISCapabilityError`.
+
+        Returns
+        -------
+        str
+            Opaque seal token that must be passed to :meth:`unseal`.
         """
+        import uuid
+
         with self._lock:
             self._frozen = True
+            self._seal_token = str(uuid.uuid4())
+            return self._seal_token
 
-    def unseal(self) -> None:
-        """Re-enable mutations after a :meth:`freeze`."""
+    def unseal(self, token: str) -> None:
+        """Re-enable mutations after a :meth:`freeze`.
+
+        Parameters
+        ----------
+        token : str
+            The seal token returned by :meth:`freeze`.
+
+        Raises
+        ------
+        AEGISCapabilityError
+            If the token does not match the seal token.
+        """
         with self._lock:
+            if self._seal_token is None or token != self._seal_token:
+                raise AEGISCapabilityError(
+                    "Invalid seal token — cannot unseal registry",
+                    error_code="INVALID_SEAL_TOKEN",
+                )
             self._frozen = False
+            self._seal_token = None
 
     @property
     def is_frozen(self) -> bool:

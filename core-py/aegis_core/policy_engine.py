@@ -154,20 +154,50 @@ class PolicyEngine:
         self._policies: dict[str, Policy] = {}
         self._lock = threading.Lock()
         self._frozen = False
+        self._seal_token: str | None = None
 
     # ------------------------------------------------------------------
-    # Freeze / unseal (RT-010 / T8002, SP-3)
+    # Freeze / unseal (RT-010 / T8002, SP-3, C-2)
     # ------------------------------------------------------------------
 
-    def freeze(self) -> None:
-        """Lock the policy engine against mutations."""
+    def freeze(self) -> str:
+        """Lock the policy engine against mutations.
+
+        Returns a seal token required to unseal.
+
+        Returns
+        -------
+        str
+            Opaque seal token that must be passed to :meth:`unseal`.
+        """
+        import uuid
+
         with self._lock:
             self._frozen = True
+            self._seal_token = str(uuid.uuid4())
+            return self._seal_token
 
-    def unseal(self) -> None:
-        """Re-enable mutations after a :meth:`freeze`."""
+    def unseal(self, token: str) -> None:
+        """Re-enable mutations after a :meth:`freeze`.
+
+        Parameters
+        ----------
+        token : str
+            The seal token returned by :meth:`freeze`.
+
+        Raises
+        ------
+        AEGISPolicyError
+            If the token does not match.
+        """
         with self._lock:
+            if self._seal_token is None or token != self._seal_token:
+                raise AEGISPolicyError(
+                    "Invalid seal token - cannot unseal policy engine",
+                    error_code="INVALID_SEAL_TOKEN",
+                )
             self._frozen = False
+            self._seal_token = None
 
     @property
     def is_frozen(self) -> bool:

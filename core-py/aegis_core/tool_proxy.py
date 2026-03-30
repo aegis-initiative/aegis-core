@@ -29,7 +29,9 @@ Usage::
 from __future__ import annotations
 
 import asyncio
+import collections
 import functools
+import threading
 import time
 from collections.abc import Callable
 from dataclasses import dataclass
@@ -112,8 +114,12 @@ class ToolProxy:
         self._audit = audit_system
         # name -> (callable, governance_target)
         self._tools: dict[str, tuple[Callable[..., Any], str]] = {}
-        # Call history
-        self._call_history: list[CallRecord] = []
+        # M-5: deque for O(1) bounded history instead of list.pop(0) O(n)
+        self._call_history: collections.deque[CallRecord] = collections.deque(
+            maxlen=max_history_size
+        )
+        # M-6: Thread-safe depth counter
+        self._depth_lock = threading.Lock()
         # RT-017 / T6001: Current call depth for recursion detection
         self._current_call_depth = 0
 
@@ -200,10 +206,11 @@ class ToolProxy:
         """
         start_time = time.perf_counter()
 
-        # RT-017 / T6001: Enforce recursion depth limit
-        if self._current_call_depth >= self._max_call_depth:
-            raise RecursionError(
-                f"Tool call depth ({self._current_call_depth}) exceeds maximum "
+        # M-6: Thread-safe depth check
+        with self._depth_lock:
+            if self._current_call_depth >= self._max_call_depth:
+                raise RecursionError(
+                    f"Tool call depth ({self._current_call_depth}) exceeds maximum "
                 f"({self._max_call_depth}). Possible recursive invocation loop."
             )
 
@@ -242,8 +249,9 @@ class ToolProxy:
                 f"{response.reason} (audit_id={response.audit_id})"
             )
 
-        # Execute the tool with depth tracking (RT-017 / T6001)
-        self._current_call_depth += 1
+        # Execute the tool with depth tracking (M-6: thread-safe)
+        with self._depth_lock:
+            self._current_call_depth += 1
         try:
             result = fn(**kwargs)
             duration_ms = (time.perf_counter() - start_time) * 1000
@@ -280,7 +288,8 @@ class ToolProxy:
                 )
             raise
         finally:
-            self._current_call_depth -= 1
+            with self._depth_lock:
+                self._current_call_depth -= 1
 
     async def async_call(
         self,
@@ -313,10 +322,20 @@ class ToolProxy:
             If *tool_name* has not been registered.
         PermissionError
             If the governance decision is not ``APPROVED``.
+        RecursionError
+            If the call depth exceeds ``max_call_depth``.
         asyncio.TimeoutError
             If the execution exceeds the timeout.
         """
         start_time = time.perf_counter()
+
+        # M-7: Depth check for async path (matches sync call())
+        with self._depth_lock:
+            if self._current_call_depth >= self._max_call_depth:
+                raise RecursionError(
+                    f"Async tool call depth ({self._current_call_depth}) "
+                    f"exceeds maximum ({self._max_call_depth})."
+                )
 
         if tool_name not in self._tools:
             raise ValueError(
@@ -429,12 +448,8 @@ class ToolProxy:
             approved=approved,
             error=error,
         )
+        # M-5: deque with maxlen handles bounding automatically
         self._call_history.append(record)
-
-        # Keep history bounded
-        if len(self._call_history) > self._max_history_size:
-            self._call_history.pop(0)
-
     def get_call_history(self) -> list[CallRecord]:
         """Get the call history.
 

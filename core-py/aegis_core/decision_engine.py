@@ -112,11 +112,11 @@ class DecisionEngine:
         self._risk = risk_engine or RiskEngine(audit_system=audit_system)
 
         # RT-003 / T2001, RT-007 / T8002: Unified evaluation lock ensures
-        # capability check and policy evaluation are atomic - prevents
-        # TOCTOU where capabilities or policies change between stages.
+        # all three stages are atomic - prevents TOCTOU.
         self._eval_lock = threading.Lock()
 
-        # Metrics collection
+        # H-2: Thread-safe metrics
+        self._metrics_lock = threading.Lock()
         self._metrics = DecisionMetrics()
 
     # ------------------------------------------------------------------
@@ -283,39 +283,41 @@ class DecisionEngine:
                 if decision == Decision.DENIED:
                     self._metrics.policy_denials += 1
 
-        # ------------------------------------------------------------------
-        # Stage 3: Risk assessment (proportionality gate, RT-014 / T3001)
-        # ------------------------------------------------------------------
-        risk_assessment = self._risk.assess(
-            action_type=action_type,
-            target=request.action.target,
-            agent_id=request.agent_id,
-            parameters=request.action.parameters,
-        )
+            # --------------------------------------------------------------
+            # Stage 3: Risk assessment (inside lock — H-1 fix)
+            # --------------------------------------------------------------
+            risk_assessment = self._risk.assess(
+                action_type=action_type,
+                target=request.action.target,
+                agent_id=request.agent_id,
+                parameters=request.action.parameters,
+            )
 
-        # Proportionality override: if policy approved but risk is too high,
-        # escalate the decision. This ensures destructive actions get human
-        # review even when policy rules technically allow them.
-        if decision == Decision.APPROVED:
-            if risk_assessment.composite_score >= self._risk.escalation_threshold:
-                decision = Decision.ESCALATE
-                reason = (
-                    f"Risk score {risk_assessment.composite_score}/10.0 "
-                    f"exceeds escalation threshold "
-                    f"({self._risk.escalation_threshold}). "
-                    f"{risk_assessment.explanation}"
-                )
-            elif (
-                risk_assessment.composite_score
-                >= self._risk.require_confirmation_threshold
-            ):
-                decision = Decision.REQUIRE_CONFIRMATION
-                reason = (
-                    f"Risk score {risk_assessment.composite_score}/10.0 "
-                    f"exceeds confirmation threshold "
-                    f"({self._risk.require_confirmation_threshold}). "
-                    f"{risk_assessment.explanation}"
-                )
+            # Proportionality override: if policy approved but risk is
+            # too high, escalate the decision.
+            if decision == Decision.APPROVED:
+                if (
+                    risk_assessment.composite_score
+                    >= self._risk.escalation_threshold
+                ):
+                    decision = Decision.ESCALATE
+                    reason = (
+                        f"Risk score {risk_assessment.composite_score}/10.0 "
+                        f"exceeds escalation threshold "
+                        f"({self._risk.escalation_threshold}). "
+                        f"{risk_assessment.explanation}"
+                    )
+                elif (
+                    risk_assessment.composite_score
+                    >= self._risk.require_confirmation_threshold
+                ):
+                    decision = Decision.REQUIRE_CONFIRMATION
+                    reason = (
+                        f"Risk score {risk_assessment.composite_score}/10.0 "
+                        f"exceeds confirmation threshold "
+                        f"({self._risk.require_confirmation_threshold}). "
+                        f"{risk_assessment.explanation}"
+                    )
 
         # ------------------------------------------------------------------
         # Audit (always, regardless of decision)
@@ -353,41 +355,36 @@ class DecisionEngine:
     # ------------------------------------------------------------------
 
     def _record_decision_metrics(self, decision: Decision, latency_ms: float) -> None:
-        """Record metrics for a decision.
+        """Record metrics for a decision (H-2: thread-safe)."""
+        with self._metrics_lock:
+            self._metrics.total_decisions += 1
+            self._metrics.total_latency_ms += latency_ms
+            self._metrics.avg_latency_ms = (
+                self._metrics.total_latency_ms / self._metrics.total_decisions
+            )
 
-        Parameters
-        ----------
-        decision : Decision
-            The decision outcome.
-        latency_ms : float
-            The decision latency in milliseconds.
-        """
-        self._metrics.total_decisions += 1
-        self._metrics.total_latency_ms += latency_ms
-        self._metrics.avg_latency_ms = (
-            self._metrics.total_latency_ms / self._metrics.total_decisions
-        )
-
-        if decision == Decision.APPROVED:
-            self._metrics.approved_count += 1
-        elif decision == Decision.DENIED:
-            self._metrics.denied_count += 1
-        elif decision == Decision.ESCALATE:
-            self._metrics.deferred_count += 1
+            if decision == Decision.APPROVED:
+                self._metrics.approved_count += 1
+            elif decision == Decision.DENIED:
+                self._metrics.denied_count += 1
+            elif decision == Decision.ESCALATE:
+                self._metrics.deferred_count += 1
 
     def get_metrics(self) -> DecisionMetrics:
-        """Get current decision metrics.
-
-        Returns
-        -------
-        DecisionMetrics
-            Current metrics snapshot.
-        """
-        return self._metrics
+        """Get current decision metrics (thread-safe snapshot)."""
+        with self._metrics_lock:
+            return DecisionMetrics(
+                total_decisions=self._metrics.total_decisions,
+                approved_count=self._metrics.approved_count,
+                denied_count=self._metrics.denied_count,
+                deferred_count=self._metrics.deferred_count,
+                capability_denials=self._metrics.capability_denials,
+                policy_denials=self._metrics.policy_denials,
+                total_latency_ms=self._metrics.total_latency_ms,
+                avg_latency_ms=self._metrics.avg_latency_ms,
+            )
 
     def reset_metrics(self) -> None:
-        """Reset metrics counters to zero.
-
-        Useful for periodic metric window resets.
-        """
-        self._metrics = DecisionMetrics()
+        """Reset metrics counters to zero (thread-safe)."""
+        with self._metrics_lock:
+            self._metrics = DecisionMetrics()

@@ -120,12 +120,16 @@ class AuditSystem:
         "timestamp",
     )
 
+    # M-4: Checkpoint WAL after this many writes to prevent unbounded growth
+    _WAL_CHECKPOINT_INTERVAL = 1000
+
     def __init__(self, db_path: str = ":memory:") -> None:
         self._conn = sqlite3.connect(db_path, check_same_thread=False)
         self._lock = threading.Lock()
         self._conn.execute("PRAGMA journal_mode=WAL;")
         self._conn.execute(self._CREATE_TABLE)
         self._conn.commit()
+        self._write_count = 0
 
     # ------------------------------------------------------------------
     # Write
@@ -203,6 +207,7 @@ class AuditSystem:
                     ),
                 )
                 self._conn.commit()
+                self._maybe_checkpoint()
             except sqlite3.Error as exc:
                 raise AEGISAuditError(
                     f"Failed to persist audit record: {exc}",
@@ -210,6 +215,13 @@ class AuditSystem:
                 ) from exc
 
         return audit_id
+
+    def _maybe_checkpoint(self) -> None:
+        """Checkpoint WAL if write count exceeds interval (M-4)."""
+        self._write_count += 1
+        if self._write_count >= self._WAL_CHECKPOINT_INTERVAL:
+            self._conn.execute("PRAGMA wal_checkpoint(TRUNCATE);")
+            self._write_count = 0
 
     def batch_record(
         self,
@@ -246,6 +258,9 @@ class AuditSystem:
 
         with self._lock:
             try:
+                # H-5: Explicit transaction for atomic batch insert.
+                # On failure, all records are rolled back — no partial state.
+                self._conn.execute("BEGIN IMMEDIATE")
                 for audit_id, record_data in zip(audit_ids, records, strict=False):
                     self._conn.execute(
                         f"INSERT INTO audit_records ({', '.join(self._COLUMNS)}) "
@@ -264,8 +279,12 @@ class AuditSystem:
                             timestamp,
                         ),
                     )
-                self._conn.commit()
+                self._conn.execute("COMMIT")
             except sqlite3.Error as exc:
+                import contextlib
+
+                with contextlib.suppress(sqlite3.Error):
+                    self._conn.execute("ROLLBACK")
                 raise AEGISAuditError(
                     f"Failed to persist batch audit records: {exc}",
                     error_code="BATCH_PERSIST_ERROR"

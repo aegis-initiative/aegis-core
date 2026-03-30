@@ -33,6 +33,28 @@ from datetime import UTC, datetime
 from enum import StrEnum
 from typing import Any
 
+# M-2: Maximum JSON payload size for from_json methods (10 MB)
+_MAX_JSON_SIZE = 10 * 1024 * 1024
+
+
+def _safe_json_loads(json_str: str, label: str = "payload") -> dict[str, Any]:
+    """Parse JSON with size limit and error wrapping (M-2)."""
+    if not isinstance(json_str, str):
+        msg = f"{label}: expected str, got {type(json_str).__name__}"
+        raise ValueError(msg)
+    if len(json_str) > _MAX_JSON_SIZE:
+        msg = f"{label}: exceeds maximum size ({_MAX_JSON_SIZE} bytes)"
+        raise ValueError(msg)
+    try:
+        data = json.loads(json_str)
+    except json.JSONDecodeError as exc:
+        msg = f"{label}: invalid JSON: {exc}"
+        raise ValueError(msg) from exc
+    if not isinstance(data, dict):
+        msg = f"{label}: expected JSON object, got {type(data).__name__}"
+        raise ValueError(msg)
+    return data
+
 
 class Decision(StrEnum):
     """Possible outcomes of a governance decision."""
@@ -133,7 +155,7 @@ class AGPAction:
         AGPAction
             Deserialized action.
         """
-        data = json.loads(json_str)
+        data = _safe_json_loads(json_str, "AGPAction")
         return cls(
             type=ActionType(data["type"]),
             target=data["target"],
@@ -204,7 +226,7 @@ class AGPContext:
         AGPContext
             Deserialized context.
         """
-        data = json.loads(json_str)
+        data = _safe_json_loads(json_str, "AGPContext")
         return cls(
             session_id=data["session_id"],
             timestamp=datetime.fromisoformat(data["timestamp"]),
@@ -279,7 +301,7 @@ class AGPRequest:
         AGPRequest
             Deserialized request.
         """
-        data = json.loads(json_str)
+        data = _safe_json_loads(json_str, "AGPRequest")
         return cls(
             agent_id=data["agent_id"],
             action=AGPAction.from_json(json.dumps(data["action"])),
@@ -383,7 +405,7 @@ class AGPResponse:
         AGPResponse
             Deserialized response.
         """
-        data = json.loads(json_str)
+        data = _safe_json_loads(json_str, "AGPResponse")
         return cls(
             request_id=data["request_id"],
             decision=Decision(data["decision"]),
