@@ -11,7 +11,7 @@ Risk scoring considers multiple dimensions:
     - Contextual risk: Environmental factors that amplify or attenuate risk
       (e.g., production vs. sandbox, data sensitivity level)
     - Historical risk: The system's track record of policy compliance
-    - Composite score: A normalized 0.0–1.0 score aggregating all dimensions
+    - Composite score: A normalized 0.0-1.0 score aggregating all dimensions
 
 The risk score feeds into the gateway's final DECISION_RESPONSE:
     - score < 0.3  → low risk, likely approve
@@ -58,7 +58,7 @@ class RiskEngine:
     def score(
         self,
         capability_tier: str = "standard",
-        context: dict | None = None,
+        context: dict[str, object] | None = None,
     ) -> RiskAssessment:
         """
         Compute a risk score for a proposed action.

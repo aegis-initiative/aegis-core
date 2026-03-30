@@ -1,4 +1,4 @@
-"""AEGISRuntime – convenience facade.
+"""AEGISRuntime - convenience facade.
 
 Wires all AEGIS components together into a single object that can be
 used as the primary integration point for embedders.
@@ -30,14 +30,14 @@ Quick-start::
         name="Allow documentation reads",
         description="Agents with the docs capability may read documentation.",
         effect=PolicyEffect.ALLOW,
-        conditions=[],  # no extra conditions – capability check is sufficient
+        conditions=[],  # no extra conditions - capability check is sufficient
     ))
 
     # 4. Create a governed tool proxy for the agent
     proxy = runtime.create_tool_proxy("agent-1", "session-xyz")
     proxy.register_tool("read_doc", fn=lambda path: open(path).read(), target="read_doc")
 
-    # 5. Invoke the tool – governance is applied transparently
+    # 5. Invoke the tool - governance is applied transparently
     content = proxy.call("read_doc", path="/docs/intro.md")
 
 Context manager usage::
@@ -106,7 +106,12 @@ class AEGISRuntime:
         """
         return self
 
-    def __exit__(self, exc_type, exc_val, exc_tb) -> None:
+    def __exit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc_val: BaseException | None,
+        exc_tb: object,
+    ) -> None:
         """Exit a context manager block.
 
         Automatically calls :meth:`shutdown` to clean up resources.
@@ -135,13 +140,12 @@ class AEGISRuntime:
         """
         if self._is_shutdown:
             return
-        
+
         # Close database connection
-        try:
+        import contextlib
+        with contextlib.suppress(Exception):
             self._audit._conn.close()
-        except Exception:
-            pass  # Already closed or error during close
-        
+
         # Mark as shutdown
         self._is_shutdown = True
 
@@ -182,7 +186,7 @@ class AEGISRuntime:
             The AI agent that will use the proxy.
         session_id : str
             The current session identifier.
-            
+
         Returns
         -------
         ToolProxy
@@ -192,4 +196,5 @@ class AEGISRuntime:
             gateway=self._gateway,
             agent_id=agent_id,
             session_id=session_id,
+            audit_system=self._audit,
         )

@@ -22,10 +22,11 @@ Design
 from __future__ import annotations
 
 import fnmatch
+import posixpath
 import threading
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
-from typing import Optional
+from datetime import UTC, datetime
+from typing import Any
 
 from .exceptions import AEGISCapabilityError
 
@@ -62,19 +63,19 @@ class Capability:
     action_types: list[str]
     target_patterns: list[str]
     granted_at: datetime = field(
-        default_factory=lambda: datetime.now(timezone.utc)
+        default_factory=lambda: datetime.now(UTC)
     )
-    expires_at: Optional[datetime] = None
-    metadata: dict = field(default_factory=dict)
+    expires_at: datetime | None = None
+    metadata: dict[str, Any] = field(default_factory=dict)
 
     def is_active(self, at: datetime | None = None) -> bool:
         """Return ``True`` if the capability has not expired.
-        
+
         Parameters
         ----------
         at : datetime, optional
             Reference time. Defaults to now(UTC).
-            
+
         Returns
         -------
         bool
@@ -82,19 +83,22 @@ class Capability:
         """
         if self.expires_at is None:
             return True
-        reference = at or datetime.now(timezone.utc)
+        reference = at or datetime.now(UTC)
         return self.expires_at > reference
 
     def covers(self, action_type: str, target: str) -> bool:
         """Return ``True`` if this capability permits *action_type* on *target*.
-        
+
+        Targets are normalized via ``posixpath.normpath`` to prevent
+        path-traversal attacks (e.g. ``/docs/../etc/passwd``).
+
         Parameters
         ----------
         action_type : str
             The action type to check (e.g., "tool_call", "file_read").
         target : str
             The resource target to check (e.g., "/docs/*").
-            
+
         Returns
         -------
         bool
@@ -104,8 +108,12 @@ class Capability:
             return False
         if action_type not in self.action_types:
             return False
+        # Normalize the target to prevent path traversal (RT-002 / T10001).
+        # Only normalize path-like targets; skip URI schemes to avoid
+        # collapsing '://' to ':/' (RT-024).
+        normalized_target = target if "://" in target else posixpath.normpath(target)
         return any(
-            fnmatch.fnmatch(target, pattern) or pattern == "*"
+            fnmatch.fnmatch(normalized_target, pattern) or pattern == "*"
             for pattern in self.target_patterns
         )
 
@@ -116,12 +124,52 @@ class CapabilityRegistry:
     This implementation is thread-safe via internal locking. All database
     operations are protected to enable safe concurrent access from multiple
     threads.
+
+    Supports a ``freeze()`` / ``unseal()`` mechanism (RT-006 / T8002,
+    SP-3) to lock governance state after configuration.  Once frozen,
+    mutation methods (``register``, ``unregister``, ``grant``, ``revoke``,
+    etc.) raise :class:`AEGISCapabilityError`.  Read-only queries remain
+    available.
     """
 
     def __init__(self) -> None:
         self._capabilities: dict[str, Capability] = {}
         self._agent_capabilities: dict[str, set[str]] = {}
         self._lock = threading.Lock()
+        self._frozen = False
+
+    # ------------------------------------------------------------------
+    # Freeze / unseal (RT-006 / T8002, SP-3)
+    # ------------------------------------------------------------------
+
+    def freeze(self) -> None:
+        """Lock the registry against mutations.
+
+        After calling ``freeze()``, any attempt to register, unregister,
+        grant, or revoke raises :class:`AEGISCapabilityError`.  Call
+        :meth:`unseal` to re-enable mutations.
+        """
+        with self._lock:
+            self._frozen = True
+
+    def unseal(self) -> None:
+        """Re-enable mutations after a :meth:`freeze`."""
+        with self._lock:
+            self._frozen = False
+
+    @property
+    def is_frozen(self) -> bool:
+        """Return ``True`` if the registry is currently frozen."""
+        return self._frozen
+
+    def _check_frozen(self) -> None:
+        """Raise if frozen."""
+        if self._frozen:
+            raise AEGISCapabilityError(
+                "CapabilityRegistry is frozen. Call unseal() before "
+                "modifying governance state.",
+                error_code="REGISTRY_FROZEN",
+            )
 
     # ------------------------------------------------------------------
     # Capability management
@@ -134,12 +182,15 @@ class CapabilityRegistry:
         ----------
         capability : Capability
             The capability to register.
-            
+
         Raises
         ------
         ValueError
             If a capability with the same ID is already registered.
+        AEGISCapabilityError
+            If the registry is frozen.
         """
+        self._check_frozen()
         with self._lock:
             if capability.id in self._capabilities:
                 raise ValueError(f"Capability '{capability.id}' is already registered.")
@@ -147,12 +198,13 @@ class CapabilityRegistry:
 
     def unregister(self, capability_id: str) -> None:
         """Remove a capability definition and all agent assignments for it.
-        
+
         Parameters
         ----------
         capability_id : str
             ID of the capability to unregister.
         """
+        self._check_frozen()
         with self._lock:
             self._capabilities.pop(capability_id, None)
             for agent_caps in self._agent_capabilities.values():
@@ -160,12 +212,12 @@ class CapabilityRegistry:
 
     def get_capability(self, capability_id: str) -> Capability | None:
         """Look up a capability by ID.
-        
+
         Parameters
         ----------
         capability_id : str
             ID of the capability to retrieve.
-            
+
         Returns
         -------
         Capability or None
@@ -187,12 +239,13 @@ class CapabilityRegistry:
             The agent to grant the capability to.
         capability_id : str
             The capability to grant.
-            
+
         Raises
         ------
         AEGISCapabilityError
-            If *capability_id* is not registered.
+            If *capability_id* is not registered or registry is frozen.
         """
+        self._check_frozen()
         with self._lock:
             if capability_id not in self._capabilities:
                 raise AEGISCapabilityError(
@@ -207,7 +260,7 @@ class CapabilityRegistry:
         capability_id: str,
     ) -> int:
         """Grant a single capability to multiple agents.
-        
+
         This is more efficient than calling grant() multiple times, as it
         performs all assignments in a single atomic transaction.
 
@@ -217,17 +270,18 @@ class CapabilityRegistry:
             List of agent IDs to grant the capability to.
         capability_id : str
             The capability to grant to all agents.
-            
+
         Returns
         -------
         int
             The number of agents that were granted the capability.
-            
+
         Raises
         ------
         AEGISCapabilityError
-            If *capability_id* is not registered.
+            If *capability_id* is not registered or registry is frozen.
         """
+        self._check_frozen()
         with self._lock:
             if capability_id not in self._capabilities:
                 raise AEGISCapabilityError(
@@ -245,7 +299,7 @@ class CapabilityRegistry:
 
     def revoke(self, agent_id: str, capability_id: str) -> None:
         """Revoke *capability_id* from *agent_id* (no-op if not held).
-        
+
         Parameters
         ----------
         agent_id : str
@@ -253,6 +307,7 @@ class CapabilityRegistry:
         capability_id : str
             The capability to revoke.
         """
+        self._check_frozen()
         with self._lock:
             if agent_id in self._agent_capabilities:
                 self._agent_capabilities[agent_id].discard(capability_id)
@@ -263,7 +318,7 @@ class CapabilityRegistry:
         capability_id: str,
     ) -> int:
         """Revoke a single capability from multiple agents.
-        
+
         This is more efficient than calling revoke() multiple times, as it
         performs all revocations in a single atomic transaction.
 
@@ -273,29 +328,33 @@ class CapabilityRegistry:
             List of agent IDs to revoke the capability from.
         capability_id : str
             The capability to revoke from all agents.
-            
+
         Returns
         -------
         int
             The number of agents that had the capability revoked.
         """
+        self._check_frozen()
         with self._lock:
             count = 0
             for agent_id in agent_ids:
-                if agent_id in self._agent_capabilities:
-                    if capability_id in self._agent_capabilities[agent_id]:
-                        self._agent_capabilities[agent_id].discard(capability_id)
-                        count += 1
+                if (
+                    agent_id in self._agent_capabilities
+                    and capability_id in self._agent_capabilities[agent_id]
+                ):
+                    self._agent_capabilities[agent_id].discard(capability_id)
+                    count += 1
             return count
 
     def revoke_all(self, agent_id: str) -> None:
         """Revoke all capabilities from *agent_id*.
-        
+
         Parameters
         ----------
         agent_id : str
             The agent to revoke all capabilities from.
         """
+        self._check_frozen()
         with self._lock:
             self._agent_capabilities.pop(agent_id, None)
 
@@ -305,12 +364,12 @@ class CapabilityRegistry:
 
     def get_agent_capabilities(self, agent_id: str) -> list[Capability]:
         """Return the active capabilities currently held by *agent_id*.
-        
+
         Parameters
         ----------
         agent_id : str
             The agent to query.
-            
+
         Returns
         -------
         list[Capability]
@@ -318,7 +377,7 @@ class CapabilityRegistry:
         """
         with self._lock:
             cap_ids = self._agent_capabilities.get(agent_id, set())
-            now = datetime.now(timezone.utc)
+            now = datetime.now(UTC)
             return [
                 self._capabilities[cid]
                 for cid in cap_ids
@@ -330,7 +389,7 @@ class CapabilityRegistry:
     ) -> bool:
         """Return ``True`` if *agent_id* holds a capability covering *action_type*
         on *target*.
-        
+
         Parameters
         ----------
         agent_id : str
@@ -339,7 +398,7 @@ class CapabilityRegistry:
             The action type (e.g., "tool_call").
         target : str
             The target resource.
-            
+
         Returns
         -------
         bool

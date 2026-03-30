@@ -6,11 +6,11 @@ queried for compliance reporting and forensic review.
 
 Design principles
 -----------------
-* **Immutable** – records are never updated or deleted.
-* **Complete** – every AGP request/response pair is recorded regardless
+* **Immutable** - records are never updated or deleted.
+* **Complete** - every AGP request/response pair is recorded regardless
   of the decision outcome.
-* **Queryable** – records can be retrieved by audit ID, agent ID, or session.
-* **Thread-safe** – all database operations are protected by locks for
+* **Queryable** - records can be retrieved by audit ID, agent ID, or session.
+* **Thread-safe** - all database operations are protected by locks for
   concurrent access from multiple agents.
 """
 
@@ -21,7 +21,7 @@ import sqlite3
 import threading
 import uuid
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 from .exceptions import AEGISAuditError
@@ -30,7 +30,7 @@ from .exceptions import AEGISAuditError
 @dataclass(frozen=True)
 class AuditRecord:
     """An immutable record of a single governance decision.
-    
+
     Parameters
     ----------
     id : str
@@ -83,7 +83,7 @@ class AuditSystem:
     db_path : str
         File path for the SQLite database.  Defaults to ``":memory:"``
         which is useful for testing.
-        
+
     Raises
     ------
     AEGISAuditError
@@ -145,7 +145,7 @@ class AuditSystem:
         session_id: str,
     ) -> str:
         """Append a governance decision to the audit trail.
-        
+
         This method is thread-safe and ensures that the audit record is
         persisted atomically before returning.
 
@@ -181,12 +181,12 @@ class AuditSystem:
             If the record cannot be persisted to the database.
         """
         audit_id = str(uuid.uuid4())
-        timestamp = datetime.now(timezone.utc).isoformat()
+        timestamp = datetime.now(UTC).isoformat()
 
         with self._lock:
             try:
                 self._conn.execute(
-                    f"INSERT INTO audit_records ({', '.join(self._COLUMNS)}) "  # noqa: S608
+                    f"INSERT INTO audit_records ({', '.join(self._COLUMNS)}) "
                     f"VALUES ({', '.join(['?'] * len(self._COLUMNS))})",
                     (
                         audit_id,
@@ -216,7 +216,7 @@ class AuditSystem:
         records: list[dict[str, Any]],
     ) -> list[str]:
         """Append multiple governance decisions to the audit trail in a batch.
-        
+
         This method is more efficient than calling :meth:`record` multiple
         times, as it batches all inserts into a single transaction. All records
         are inserted atomically.
@@ -242,13 +242,13 @@ class AuditSystem:
             return []
 
         audit_ids = [str(uuid.uuid4()) for _ in records]
-        timestamp = datetime.now(timezone.utc).isoformat()
+        timestamp = datetime.now(UTC).isoformat()
 
         with self._lock:
             try:
-                for audit_id, record_data in zip(audit_ids, records):
+                for audit_id, record_data in zip(audit_ids, records, strict=False):
                     self._conn.execute(
-                        f"INSERT INTO audit_records ({', '.join(self._COLUMNS)}) "  # noqa: S608
+                        f"INSERT INTO audit_records ({', '.join(self._COLUMNS)}) "
                         f"VALUES ({', '.join(['?'] * len(self._COLUMNS))})",
                         (
                             audit_id,
@@ -279,12 +279,12 @@ class AuditSystem:
 
     def get_record(self, audit_id: str) -> AuditRecord | None:
         """Retrieve a single audit record by its ID.
-        
+
         Parameters
         ----------
         audit_id : str
             The audit record ID to retrieve.
-            
+
         Returns
         -------
         AuditRecord or None
@@ -301,7 +301,7 @@ class AuditSystem:
         self, agent_id: str, *, limit: int = 100, offset: int = 0
     ) -> list[AuditRecord]:
         """Return the most recent audit records for a given agent.
-        
+
         Parameters
         ----------
         agent_id : str
@@ -310,7 +310,7 @@ class AuditSystem:
             Maximum number of records to return. Defaults to 100.
         offset : int, optional
             Number of records to skip. Defaults to 0. Useful for pagination.
-            
+
         Returns
         -------
         list[AuditRecord]
@@ -327,12 +327,12 @@ class AuditSystem:
 
     def get_session_history(self, session_id: str) -> list[AuditRecord]:
         """Return all audit records for a given session.
-        
+
         Parameters
         ----------
         session_id : str
             The session identifier to retrieve history for.
-            
+
         Returns
         -------
         list[AuditRecord]
@@ -351,14 +351,14 @@ class AuditSystem:
         self, decision: str, *, limit: int = 100
     ) -> list[AuditRecord]:
         """Find audit records by decision outcome.
-        
+
         Parameters
         ----------
         decision : str
             The decision value to filter by (e.g., "APPROVED", "DENIED").
         limit : int, optional
             Maximum number of records to return. Defaults to 100.
-            
+
         Returns
         -------
         list[AuditRecord]
@@ -375,13 +375,13 @@ class AuditSystem:
 
     def record_count(self, agent_id: str | None = None) -> int:
         """Get the total number of audit records.
-        
+
         Parameters
         ----------
         agent_id : str, optional
             If provided, count only records for this agent. Defaults to None
             (count all records).
-            
+
         Returns
         -------
         int
@@ -401,9 +401,9 @@ class AuditSystem:
     # Helpers
     # ------------------------------------------------------------------
 
-    def _row_to_record(self, row: tuple) -> AuditRecord:
+    def _row_to_record(self, row: tuple[Any, ...]) -> AuditRecord:
         """Convert a database row to an AuditRecord."""
-        data = dict(zip(self._COLUMNS, row))
+        data = dict(zip(self._COLUMNS, row, strict=False))
         data["action_parameters"] = json.loads(data["action_parameters"])
         data["policy_evaluations"] = json.loads(data["policy_evaluations"])
         return AuditRecord(**data)

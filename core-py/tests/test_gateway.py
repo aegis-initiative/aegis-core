@@ -267,12 +267,12 @@ class TestRouting:
             audit_id="audit-1",
         )
         engine = Mock()
-        engine.evaluate.return_value = expected
+        engine._evaluate.return_value = expected
         gateway = GovernanceGateway(engine)
 
         response = gateway.submit(request)
 
-        engine.evaluate.assert_called_once_with(request)
+        engine._evaluate.assert_called_once_with(request)
         assert response == expected
 
     def test_invalid_request_is_not_routed(self):

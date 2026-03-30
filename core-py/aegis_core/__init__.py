@@ -43,33 +43,42 @@ from .policy_engine import (
     PolicyResult,
 )
 from .protocol import (
+    ActionType,
     AGPAction,
     AGPContext,
     AGPRequest,
     AGPResponse,
-    ActionType,
     Decision,
 )
 from .runtime import AEGISRuntime
 from .tool_proxy import ToolProxy
 
 __all__ = [
+    "AEGISAuditError",
+    "AEGISCapabilityError",
+    # Exceptions
+    "AEGISError",
+    "AEGISPolicyError",
     # Runtime facade
     "AEGISRuntime",
+    "AEGISValidationError",
     # Protocol
     "AGPAction",
     "AGPContext",
     "AGPRequest",
     "AGPResponse",
     "ActionType",
-    "Decision",
-    # Gateway
-    "GovernanceGateway",
-    # Decision Engine
-    "DecisionEngine",
+    # Audit
+    "AuditRecord",
+    "AuditSystem",
     # Capability Registry
     "Capability",
     "CapabilityRegistry",
+    "Decision",
+    # Decision Engine
+    "DecisionEngine",
+    # Gateway
+    "GovernanceGateway",
     # Policy Engine
     "Policy",
     "PolicyCondition",
@@ -77,15 +86,6 @@ __all__ = [
     "PolicyEngine",
     "PolicyEvaluation",
     "PolicyResult",
-    # Audit
-    "AuditRecord",
-    "AuditSystem",
     # Tool Proxy
     "ToolProxy",
-    # Exceptions
-    "AEGISError",
-    "AEGISValidationError",
-    "AEGISCapabilityError",
-    "AEGISPolicyError",
-    "AEGISAuditError",
 ]

@@ -21,7 +21,7 @@ Usage::
 
     # Synchronous call (transparently governed)
     result = proxy.call("read_file", path="/etc/hosts")
-    
+
     # Async call with timeout
     result = await proxy.async_call("slow_tool", timeout=5.0)
 """
@@ -30,17 +30,19 @@ from __future__ import annotations
 
 import asyncio
 import time
-from dataclasses import dataclass, field
-from typing import Any, Callable
+from collections.abc import Callable
+from dataclasses import dataclass
+from typing import Any
 
+from .audit import AuditSystem
 from .gateway import GovernanceGateway
-from .protocol import AGPAction, AGPContext, AGPRequest, ActionType, Decision
+from .protocol import ActionType, AGPAction, AGPContext, AGPRequest, Decision
 
 
 @dataclass(frozen=True)
 class CallRecord:
     """Record of a single tool invocation.
-    
+
     Parameters
     ----------
     tool_name : str
@@ -56,7 +58,7 @@ class CallRecord:
     error : str or None
         Exception message if the call failed, None otherwise.
     """
-    
+
     tool_name: str
     timestamp: float
     duration_ms: float
@@ -86,6 +88,9 @@ class ToolProxy:
         Maximum number of call records to keep. Defaults to 1000.
     """
 
+    # RT-017 / T6001: Default maximum call depth to prevent recursive loops
+    _DEFAULT_MAX_CALL_DEPTH = 32
+
     def __init__(
         self,
         gateway: GovernanceGateway,
@@ -93,16 +98,23 @@ class ToolProxy:
         session_id: str,
         track_history: bool = False,
         max_history_size: int = 1000,
+        max_call_depth: int = _DEFAULT_MAX_CALL_DEPTH,
+        audit_system: AuditSystem | None = None,
     ) -> None:
         self._gateway = gateway
         self._agent_id = agent_id
         self._session_id = session_id
         self._track_history = track_history
         self._max_history_size = max_history_size
+        self._max_call_depth = max_call_depth
+        # RT-016 / T5003: Optional audit system for recording execution outcomes
+        self._audit = audit_system
         # name -> (callable, governance_target)
         self._tools: dict[str, tuple[Callable[..., Any], str]] = {}
         # Call history
         self._call_history: list[CallRecord] = []
+        # RT-017 / T6001: Current call depth for recursion detection
+        self._current_call_depth = 0
 
     # ------------------------------------------------------------------
     # Registration
@@ -130,7 +142,7 @@ class ToolProxy:
 
     def unregister_tool(self, name: str) -> None:
         """Remove a tool registration (no-op if not registered).
-        
+
         Parameters
         ----------
         name : str
@@ -140,7 +152,7 @@ class ToolProxy:
 
     def registered_tools(self) -> list[str]:
         """Return the names of all registered tools.
-        
+
         Returns
         -------
         list[str]
@@ -180,11 +192,20 @@ class ToolProxy:
             If *tool_name* has not been registered.
         PermissionError
             If the governance decision is not ``APPROVED``.
+        RecursionError
+            If the call depth exceeds ``max_call_depth``.
         TimeoutError
             If the execution exceeds the timeout.
         """
         start_time = time.perf_counter()
-        
+
+        # RT-017 / T6001: Enforce recursion depth limit
+        if self._current_call_depth >= self._max_call_depth:
+            raise RecursionError(
+                f"Tool call depth ({self._current_call_depth}) exceeds maximum "
+                f"({self._max_call_depth}). Possible recursive invocation loop."
+            )
+
         if tool_name not in self._tools:
             raise ValueError(
                 f"Tool '{tool_name}' is not registered with this ToolProxy."
@@ -203,7 +224,7 @@ class ToolProxy:
         )
 
         response = self._gateway.submit(request)
-        
+
         # Record the decision in history
         if response.decision != Decision.APPROVED:
             duration_ms = (time.perf_counter() - start_time) * 1000
@@ -220,7 +241,8 @@ class ToolProxy:
                 f"{response.reason} (audit_id={response.audit_id})"
             )
 
-        # Execute the tool
+        # Execute the tool with depth tracking (RT-017 / T6001)
+        self._current_call_depth += 1
         try:
             result = fn(**kwargs)
             duration_ms = (time.perf_counter() - start_time) * 1000
@@ -242,7 +264,22 @@ class ToolProxy:
                     True,
                     error=str(e),
                 )
+            # RT-016 / T5003: Record execution failure in audit trail
+            if self._audit is not None:
+                self._audit.record(
+                    request_id=request.request_id,
+                    agent_id=self._agent_id,
+                    action_type=ActionType.TOOL_CALL.value,
+                    action_target=target,
+                    action_parameters=dict(kwargs),
+                    decision="execution_failed",
+                    reason=f"Tool '{tool_name}' approved but execution failed: {e}",
+                    policy_evaluations=[],
+                    session_id=self._session_id,
+                )
             raise
+        finally:
+            self._current_call_depth -= 1
 
     async def async_call(
         self,
@@ -279,7 +316,7 @@ class ToolProxy:
             If the execution exceeds the timeout.
         """
         start_time = time.perf_counter()
-        
+
         if tool_name not in self._tools:
             raise ValueError(
                 f"Tool '{tool_name}' is not registered with this ToolProxy."
@@ -333,7 +370,7 @@ class ToolProxy:
                     True,
                 )
             return result
-        except asyncio.TimeoutError:
+        except TimeoutError:
             duration_ms = (time.perf_counter() - start_time) * 1000
             if self._track_history:
                 self._record_call(
@@ -369,7 +406,7 @@ class ToolProxy:
         error: str | None = None,
     ) -> None:
         """Record a tool call in the history.
-        
+
         Parameters
         ----------
         tool_name : str
@@ -392,14 +429,14 @@ class ToolProxy:
             error=error,
         )
         self._call_history.append(record)
-        
+
         # Keep history bounded
         if len(self._call_history) > self._max_history_size:
             self._call_history.pop(0)
 
     def get_call_history(self) -> list[CallRecord]:
         """Get the call history.
-        
+
         Returns
         -------
         list[CallRecord]

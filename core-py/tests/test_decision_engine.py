@@ -86,13 +86,13 @@ def setup_allow(registry: CapabilityRegistry, policies: PolicyEngine,
 
 class TestCapabilityGate:
     def test_no_capability_denies(self, engine):
-        response = engine.evaluate(make_request())
+        response = engine._evaluate(make_request())
         assert response.decision == Decision.DENIED
         assert "lacks a capability" in response.reason
 
     def test_with_capability_proceeds_to_policy(self, engine, registry, policies):
         setup_allow(registry, policies)
-        response = engine.evaluate(make_request())
+        response = engine._evaluate(make_request())
         assert response.decision == Decision.APPROVED
 
 
@@ -108,7 +108,7 @@ class TestPolicyGate:
         registry.register(cap)
         registry.grant("agent-1", "cap-1")
         # No allow policy added → default-deny
-        response = engine.evaluate(make_request())
+        response = engine._evaluate(make_request())
         assert response.decision == Decision.DENIED
         assert "default-deny" in response.reason
 
@@ -123,14 +123,14 @@ class TestPolicyGate:
             conditions=[],
             priority=0,
         ))
-        response = engine.evaluate(make_request())
+        response = engine._evaluate(make_request())
         assert response.decision == Decision.DENIED
 
 
 class TestAuditIntegration:
     def test_approved_decision_is_audited(self, engine, registry, policies, audit):
         setup_allow(registry, policies)
-        response = engine.evaluate(make_request())
+        response = engine._evaluate(make_request())
         record = audit.get_record(response.audit_id)
         assert record is not None
         assert record.decision == "approved"
@@ -138,14 +138,14 @@ class TestAuditIntegration:
         assert record.action_type == "tool_call"
 
     def test_denied_decision_is_also_audited(self, engine, audit):
-        response = engine.evaluate(make_request())
+        response = engine._evaluate(make_request())
         record = audit.get_record(response.audit_id)
         assert record is not None
         assert record.decision == "denied"
 
     def test_audit_id_in_response(self, engine, registry, policies, audit):
         setup_allow(registry, policies)
-        response = engine.evaluate(make_request())
+        response = engine._evaluate(make_request())
         assert response.audit_id
         assert audit.get_record(response.audit_id) is not None
 
@@ -154,12 +154,12 @@ class TestResponseFields:
     def test_request_id_echoed(self, engine, registry, policies):
         setup_allow(registry, policies)
         req = make_request()
-        response = engine.evaluate(req)
+        response = engine._evaluate(req)
         assert response.request_id == req.request_id
 
     def test_policy_evaluations_in_audit(self, engine, registry, policies, audit):
         setup_allow(registry, policies)
-        response = engine.evaluate(make_request())
+        response = engine._evaluate(make_request())
         record = audit.get_record(response.audit_id)
         assert isinstance(record.policy_evaluations, list)
         assert len(record.policy_evaluations) >= 1
@@ -185,8 +185,8 @@ class TestDecisionMetrics:
         setup_allow(registry, policies, agent_id="a1")
         setup_allow(registry, policies, agent_id="a2")
         
-        engine.evaluate(make_request(agent_id="a1"))
-        engine.evaluate(make_request(agent_id="a2"))
+        engine._evaluate(make_request(agent_id="a1"))
+        engine._evaluate(make_request(agent_id="a2"))
         
         metrics = engine.get_metrics()
         assert metrics.total_decisions == 2
@@ -196,8 +196,8 @@ class TestDecisionMetrics:
 
     def test_metrics_count_denials(self, engine):
         """Metrics correctly count denied decisions."""
-        engine.evaluate(make_request(agent_id="a1"))
-        engine.evaluate(make_request(agent_id="a2"))
+        engine._evaluate(make_request(agent_id="a1"))
+        engine._evaluate(make_request(agent_id="a2"))
         
         metrics = engine.get_metrics()
         assert metrics.total_decisions == 2
@@ -207,7 +207,7 @@ class TestDecisionMetrics:
     def test_metrics_capability_denials(self, engine):
         """Metrics distinguish capability-stage denials."""
         # No capability registered → capability denial
-        engine.evaluate(make_request())
+        engine._evaluate(make_request())
         
         metrics = engine.get_metrics()
         assert metrics.capability_denials >= 1
@@ -234,7 +234,7 @@ class TestDecisionMetrics:
             conditions=[],
         ))
         
-        engine.evaluate(make_request())
+        engine._evaluate(make_request())
         
         metrics = engine.get_metrics()
         assert metrics.policy_denials >= 1
@@ -244,8 +244,8 @@ class TestDecisionMetrics:
         """Metrics record latency for decisions."""
         setup_allow(registry, policies)
         
-        engine.evaluate(make_request())
-        engine.evaluate(make_request())
+        engine._evaluate(make_request())
+        engine._evaluate(make_request())
         
         metrics = engine.get_metrics()
         assert metrics.total_latency_ms > 0
@@ -257,7 +257,7 @@ class TestDecisionMetrics:
         setup_allow(registry, policies)
         
         for _ in range(5):
-            engine.evaluate(make_request())
+            engine._evaluate(make_request())
         
         metrics = engine.get_metrics()
         assert metrics.total_decisions == 5
@@ -269,8 +269,8 @@ class TestDecisionMetrics:
         """Metrics can be reset to zero."""
         setup_allow(registry, policies)
         
-        engine.evaluate(make_request())
-        engine.evaluate(make_request())
+        engine._evaluate(make_request())
+        engine._evaluate(make_request())
         
         metrics = engine.get_metrics()
         assert metrics.total_decisions == 2
@@ -290,7 +290,7 @@ class TestDecisionMetrics:
         
         # Make some approved decisions
         for i in range(3):
-            engine.evaluate(make_request(agent_id=f"agent-{i}"))
+            engine._evaluate(make_request(agent_id=f"agent-{i}"))
         
         metrics_after_3 = engine.get_metrics()
         assert metrics_after_3.total_decisions == 3
@@ -300,7 +300,7 @@ class TestDecisionMetrics:
         # Make some denied decisions
         engine.reset_metrics()
         for i in range(2):
-            engine.evaluate(make_request(agent_id=f"unknown-{i}"))
+            engine._evaluate(make_request(agent_id=f"unknown-{i}"))
         
         metrics_after_denials = engine.get_metrics()
         assert metrics_after_denials.total_decisions == 2
@@ -319,7 +319,7 @@ class TestConcurrency:
 
         def evaluate_agent(agent_id: str):
             try:
-                response = engine.evaluate(make_request(agent_id=agent_id))
+                response = engine._evaluate(make_request(agent_id=agent_id))
                 assert response.decision == Decision.APPROVED
             except Exception as exc:  # pragma: no cover - should remain empty
                 with lock:

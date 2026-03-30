@@ -25,15 +25,15 @@ request against the same policy set always yields the same outcome.
 from __future__ import annotations
 
 import threading
-from dataclasses import dataclass, field
-from enum import Enum
-from typing import Callable
+from collections.abc import Callable
+from dataclasses import dataclass
+from enum import StrEnum
 
 from .exceptions import AEGISPolicyError
 from .protocol import AGPRequest, Decision
 
 
-class PolicyEffect(str, Enum):
+class PolicyEffect(StrEnum):
     """The effect applied when a policy matches a request."""
 
     ALLOW = "allow"
@@ -49,7 +49,7 @@ class PolicyCondition:
     Parameters
     ----------
     evaluate : callable
-        A callable ``(AGPRequest) -> bool``.  Must be a pure function –
+        A callable ``(AGPRequest) -> bool``.  Must be a pure function -
         side-effects are prohibited.
     description : str
         Human-readable explanation used in audit output.
@@ -95,7 +95,7 @@ class Policy:
 @dataclass(frozen=True)
 class PolicyEvaluation:
     """The outcome of evaluating a single policy against a request.
-    
+
     Parameters
     ----------
     policy_id : str
@@ -117,7 +117,7 @@ class PolicyEvaluation:
 @dataclass(frozen=True)
 class PolicyResult:
     """Aggregated result of evaluating all policies.
-    
+
     Parameters
     ----------
     decision : Decision
@@ -138,16 +138,50 @@ class PolicyEngine:
 
     All operations are thread-safe via internal locking.
 
+    Supports a ``freeze()`` / ``unseal()`` mechanism (RT-010 / T8002,
+    SP-3) to lock policy state after configuration.  Once frozen,
+    ``add_policy`` and ``remove_policy`` raise :class:`AEGISPolicyError`.
+
     Usage::
 
         engine = PolicyEngine()
         engine.add_policy(Policy(...))
+        engine.freeze()  # Lock against mutations
         result = engine.evaluate(request)
     """
 
     def __init__(self) -> None:
         self._policies: dict[str, Policy] = {}
         self._lock = threading.Lock()
+        self._frozen = False
+
+    # ------------------------------------------------------------------
+    # Freeze / unseal (RT-010 / T8002, SP-3)
+    # ------------------------------------------------------------------
+
+    def freeze(self) -> None:
+        """Lock the policy engine against mutations."""
+        with self._lock:
+            self._frozen = True
+
+    def unseal(self) -> None:
+        """Re-enable mutations after a :meth:`freeze`."""
+        with self._lock:
+            self._frozen = False
+
+    @property
+    def is_frozen(self) -> bool:
+        """Return ``True`` if the engine is currently frozen."""
+        return self._frozen
+
+    def _check_frozen(self) -> None:
+        """Raise if frozen."""
+        if self._frozen:
+            raise AEGISPolicyError(
+                "PolicyEngine is frozen. Call unseal() before "
+                "modifying governance state.",
+                error_code="ENGINE_FROZEN",
+            )
 
     # ------------------------------------------------------------------
     # Policy management
@@ -166,8 +200,9 @@ class PolicyEngine:
         ValueError
             If a policy with the same ID already exists.
         AEGISPolicyError
-            If the policy is invalid.
+            If the policy is invalid or the engine is frozen.
         """
+        self._check_frozen()
         self.validate_policy(policy)
         with self._lock:
             if policy.id in self._policies:
@@ -176,23 +211,29 @@ class PolicyEngine:
 
     def remove_policy(self, policy_id: str) -> None:
         """Unregister a policy (no-op if not found).
-        
+
         Parameters
         ----------
         policy_id : str
             The policy ID to remove.
+
+        Raises
+        ------
+        AEGISPolicyError
+            If the engine is frozen.
         """
+        self._check_frozen()
         with self._lock:
             self._policies.pop(policy_id, None)
 
     def get_policy(self, policy_id: str) -> Policy | None:
         """Look up a policy by ID.
-        
+
         Parameters
         ----------
         policy_id : str
             The policy ID to retrieve.
-            
+
         Returns
         -------
         Policy or None
@@ -203,7 +244,7 @@ class PolicyEngine:
 
     def list_policies(self) -> list[Policy]:
         """Return all registered policies sorted by priority.
-        
+
         Returns
         -------
         list[Policy]
@@ -218,18 +259,18 @@ class PolicyEngine:
 
     def validate_policy(self, policy: Policy) -> None:
         """Validate policy structure and integrity.
-        
+
         Checks:
         - Policy ID is non-empty
         - Policy name is non-empty
         - Effect is valid (ALLOW, DENY, ESCALATE, or REQUIRE_CONFIRMATION)
         - All conditions have callable evaluate functions
-        
+
         Parameters
         ----------
         policy : Policy
             The policy to validate.
-            
+
         Raises
         ------
         AEGISPolicyError
@@ -240,25 +281,30 @@ class PolicyEngine:
                 "Policy.id must not be empty",
                 error_code="EMPTY_POLICY_ID"
             )
-        
+
         if not policy.name or not policy.name.strip():
             raise AEGISPolicyError(
                 "Policy.name must not be empty",
                 error_code="EMPTY_POLICY_NAME"
             )
-        
-        if policy.effect not in (PolicyEffect.ALLOW, PolicyEffect.DENY, PolicyEffect.ESCALATE, PolicyEffect.REQUIRE_CONFIRMATION):
+
+        valid_effects = (
+            PolicyEffect.ALLOW, PolicyEffect.DENY,
+            PolicyEffect.ESCALATE, PolicyEffect.REQUIRE_CONFIRMATION,
+        )
+        if policy.effect not in valid_effects:
             raise AEGISPolicyError(
-                f"Policy.effect must be ALLOW, DENY, ESCALATE, or REQUIRE_CONFIRMATION, got {policy.effect}",
+                f"Policy.effect must be ALLOW, DENY, ESCALATE, or "
+                f"REQUIRE_CONFIRMATION, got {policy.effect}",
                 error_code="INVALID_POLICY_EFFECT"
             )
-        
+
         if not isinstance(policy.conditions, list):
             raise AEGISPolicyError(
                 f"Policy.conditions must be a list, got {type(policy.conditions).__name__}",
                 error_code="INVALID_CONDITIONS_TYPE"
             )
-        
+
         for i, condition in enumerate(policy.conditions):
             if not callable(condition.evaluate):
                 raise AEGISPolicyError(
@@ -273,12 +319,12 @@ class PolicyEngine:
 
     def find_policies_by_effect(self, effect: PolicyEffect) -> list[Policy]:
         """Find all policies with a specific effect.
-        
+
         Parameters
         ----------
         effect : PolicyEffect
             The effect to filter by (ALLOW or DENY).
-            
+
         Returns
         -------
         list[Policy]
@@ -290,17 +336,22 @@ class PolicyEngine:
 
     def find_matching_policies(self, request: AGPRequest) -> list[Policy]:
         """Find all enabled policies that would match the given request.
-        
+
         Parameters
         ----------
         request : AGPRequest
             The request to test against all policies.
-            
+
         Returns
         -------
         list[Policy]
             All policies whose conditions are satisfied by the request,
             sorted by priority.
+
+        Raises
+        ------
+        AEGISPolicyError
+            If a condition callable raises an unexpected exception.
         """
         matching = []
         with self._lock:
@@ -310,9 +361,13 @@ class PolicyEngine:
                 try:
                     if all(cond.evaluate(request) for cond in policy.conditions):
                         matching.append(policy)
-                except Exception:
-                    # Silently skip policies with errors
-                    pass
+                except Exception as exc:
+                    # RT-004 / T9002: Previously swallowed silently, which
+                    # created an inconsistency with evaluate() and allowed
+                    # detection evasion. Now raises consistently.
+                    raise AEGISPolicyError(
+                        f"Policy '{policy.id}' condition raised an error: {exc}"
+                    ) from exc
         return sorted(matching, key=lambda p: p.priority)
 
     # ------------------------------------------------------------------
@@ -389,7 +444,10 @@ class PolicyEngine:
                     )
                 elif policy.effect == PolicyEffect.ESCALATE and first_escalate is None:
                     first_escalate = policy
-                elif policy.effect == PolicyEffect.REQUIRE_CONFIRMATION and first_require_confirmation is None:
+                elif (
+                    policy.effect == PolicyEffect.REQUIRE_CONFIRMATION
+                    and first_require_confirmation is None
+                ):
                     first_require_confirmation = policy
                 elif policy.effect == PolicyEffect.ALLOW and first_allow is None:
                     first_allow = policy
@@ -405,7 +463,10 @@ class PolicyEngine:
         if first_require_confirmation is not None:
             return PolicyResult(
                 decision=Decision.REQUIRE_CONFIRMATION,
-                reason=f"Human confirmation required by policy '{first_require_confirmation.name}'.",
+                reason=(
+                    f"Human confirmation required by "
+                    f"policy '{first_require_confirmation.name}'."
+                ),
                 evaluations=evaluations,
             )
 

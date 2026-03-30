@@ -37,6 +37,11 @@ packages = ["aegis_core"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+markers = [
+    "atm1: ATM-1 attack vector traceability (AV-1..AV-7)",
+    "atx1: ATX-1 technique traceability (T1001..T10004)",
+    "security_property: AEGIS security property validation (SP-1..SP-5)",
+]
 
 [tool.ruff]
 target-version = "py311"

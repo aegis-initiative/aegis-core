@@ -1,4 +1,4 @@
-"""AGP – AEGIS Governance Protocol.
+"""AGP - AEGIS Governance Protocol.
 
 Defines the wire-level request and response structures used by all
 AEGIS components.  Every interaction between an AI agent and governed
@@ -29,12 +29,12 @@ from __future__ import annotations
 import json
 import uuid
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
-from enum import Enum
+from datetime import UTC, datetime
+from enum import StrEnum
 from typing import Any
 
 
-class Decision(str, Enum):
+class Decision(StrEnum):
     """Possible outcomes of a governance decision."""
 
     APPROVED = "approved"
@@ -50,7 +50,7 @@ class Decision(str, Enum):
     """The action requires explicit human approval before proceeding."""
 
 
-class ActionType(str, Enum):
+class ActionType(StrEnum):
     """Canonical categories of actions an AI agent may propose."""
 
     TOOL_CALL = "tool_call"
@@ -75,7 +75,7 @@ class ActionType(str, Enum):
 @dataclass
 class AGPAction:
     """Describes the specific action an agent is proposing.
-    
+
     Parameters
     ----------
     type : ActionType
@@ -97,7 +97,7 @@ class AGPAction:
 
     def to_dict(self) -> dict[str, Any]:
         """Convert this action to a dictionary.
-        
+
         Returns
         -------
         dict
@@ -111,7 +111,7 @@ class AGPAction:
 
     def to_json(self) -> str:
         """Serialize this action to JSON.
-        
+
         Returns
         -------
         str
@@ -122,12 +122,12 @@ class AGPAction:
     @classmethod
     def from_json(cls, json_str: str) -> AGPAction:
         """Deserialize an action from JSON.
-        
+
         Parameters
         ----------
         json_str : str
             JSON string encoding an AGPAction.
-            
+
         Returns
         -------
         AGPAction
@@ -144,7 +144,7 @@ class AGPAction:
 @dataclass
 class AGPContext:
     """Execution context accompanying an AGP request.
-    
+
     Parameters
     ----------
     session_id : str
@@ -159,7 +159,7 @@ class AGPContext:
     """Opaque identifier for the agent's current session."""
 
     timestamp: datetime = field(
-        default_factory=lambda: datetime.now(timezone.utc)
+        default_factory=lambda: datetime.now(UTC)
     )
     """UTC timestamp when the context was created."""
 
@@ -168,7 +168,7 @@ class AGPContext:
 
     def to_dict(self) -> dict[str, Any]:
         """Convert this context to a dictionary.
-        
+
         Returns
         -------
         dict
@@ -182,7 +182,7 @@ class AGPContext:
 
     def to_json(self) -> str:
         """Serialize this context to JSON.
-        
+
         Returns
         -------
         str
@@ -193,12 +193,12 @@ class AGPContext:
     @classmethod
     def from_json(cls, json_str: str) -> AGPContext:
         """Deserialize a context from JSON.
-        
+
         Parameters
         ----------
         json_str : str
             JSON string encoding an AGPContext.
-            
+
         Returns
         -------
         AGPContext
@@ -215,7 +215,7 @@ class AGPContext:
 @dataclass
 class AGPRequest:
     """A governance request submitted by an AI agent via AGP.
-    
+
     Parameters
     ----------
     agent_id : str
@@ -242,7 +242,7 @@ class AGPRequest:
 
     def to_dict(self) -> dict[str, Any]:
         """Convert this request to a dictionary.
-        
+
         Returns
         -------
         dict
@@ -257,7 +257,7 @@ class AGPRequest:
 
     def to_json(self) -> str:
         """Serialize this request to JSON.
-        
+
         Returns
         -------
         str
@@ -268,12 +268,12 @@ class AGPRequest:
     @classmethod
     def from_json(cls, json_str: str) -> AGPRequest:
         """Deserialize a request from JSON.
-        
+
         Parameters
         ----------
         json_str : str
             JSON string encoding an AGPRequest.
-            
+
         Returns
         -------
         AGPRequest
@@ -291,7 +291,7 @@ class AGPRequest:
 @dataclass
 class AGPResponse:
     """A governance decision returned by the AEGIS Decision Engine.
-    
+
     Parameters
     ----------
     request_id : str
@@ -324,13 +324,13 @@ class AGPResponse:
     """Optional conditions that must be observed if the action is approved."""
 
     timestamp: datetime = field(
-        default_factory=lambda: datetime.now(timezone.utc)
+        default_factory=lambda: datetime.now(UTC)
     )
     """UTC timestamp of the decision."""
 
     def to_dict(self) -> dict[str, Any]:
         """Convert this response to a dictionary.
-        
+
         Returns
         -------
         dict
@@ -347,7 +347,7 @@ class AGPResponse:
 
     def to_json(self) -> str:
         """Serialize this response to JSON.
-        
+
         Returns
         -------
         str
@@ -358,12 +358,12 @@ class AGPResponse:
     @classmethod
     def from_json(cls, json_str: str) -> AGPResponse:
         """Deserialize a response from JSON.
-        
+
         Parameters
         ----------
         json_str : str
             JSON string encoding an AGPResponse.
-            
+
         Returns
         -------
         AGPResponse
