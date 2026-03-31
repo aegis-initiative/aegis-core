@@ -3,6 +3,7 @@
   <a href="https://github.com/aegis-initiative"><img src="https://img.shields.io/badge/org-aegis--initiative-0084e7?style=flat-square&logo=github" alt="Org"></a>
   <a href="https://aegis-core.net"><img src="https://img.shields.io/badge/domain-aegis--core.net-0084e7?style=flat-square" alt="Domain"></a>
   <img src="https://img.shields.io/badge/visibility-public-lightgrey?style=flat-square" alt="Public">
+  <a href="https://doi.org/10.5281/zenodo.19342904"><img src="https://zenodo.org/badge/DOI/10.5281/zenodo.19342904.svg" alt="DOI"></a>
 </p>
 
 <p align="center">
