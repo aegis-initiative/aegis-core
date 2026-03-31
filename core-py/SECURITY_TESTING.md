@@ -9,7 +9,10 @@
 
 ## Summary
 
-The AEGIS governance runtime underwent 9 rounds of adversarial security testing, conducted by two independent AI sessions operating as competing red and blue teams. One session attacked; the other defended. Then they switched. Each round surfaced new vulnerabilities, which were fixed and re-tested before the next round began.
+The AEGIS governance runtime underwent 9 rounds of adversarial security testing, conducted by two
+independent AI sessions operating as competing red and blue teams. One session attacked; the other
+defended. Then they switched. Each round surfaced new vulnerabilities, which were fixed and
+re-tested before the next round began.
 
 **Final results:**
 
@@ -50,7 +53,9 @@ Every Python source file in the AEGIS governance runtime was audited for securit
 
 ## ATX-1 Technique Coverage
 
-The [ATX-1 Adversarial Threat Taxonomy](https://doi.org/10.21227/015v-9641) defines 29 techniques across 10 tactics for attacks against AI governance systems. AEGIS Core has test coverage for every technique applicable at the runtime engine layer.
+The [ATX-1 Adversarial Threat Taxonomy](https://doi.org/10.21227/015v-9641) defines 29 techniques
+across 10 tactics for attacks against AI governance systems. AEGIS Core has test coverage for every
+technique applicable at the runtime engine layer.
 
 ### Fully Covered (25 techniques)
 
@@ -79,7 +84,8 @@ The [ATX-1 Adversarial Threat Taxonomy](https://doi.org/10.21227/015v-9641) defi
 
 ## ATM-1 Attack Vector Coverage
 
-The ATM-1 Threat Matrix defines 7 attack surface categories. AEGIS Core covers all categories applicable at the runtime layer.
+The ATM-1 Threat Matrix defines 7 attack surface categories. AEGIS Core covers all categories
+applicable at the runtime layer.
 
 | Vector | Description | Status | Tests |
 |--------|-------------|--------|-------|
@@ -96,6 +102,7 @@ The ATM-1 Threat Matrix defines 7 attack surface categories. AEGIS Core covers a
 ## Key Hardening Measures
 
 ### Input Validation & Sanitization
+
 - Shell metacharacter detection (`; | & \` $ ( ) < >`, newlines)
 - Sensitive path write protection (git hooks, shell init, CI/CD, Dockerfiles, agent instruction files)
 - Path traversal normalization via `posixpath.normpath`
@@ -106,13 +113,18 @@ The ATM-1 Threat Matrix defines 7 attack surface categories. AEGIS Core covers a
 - Agent ID format validation (alphanumeric + hyphens/underscores/dots, max 256 chars)
 
 ### Risk Scoring Model
-- 5-dimension composite scoring: capability sensitivity, action severity, target sensitivity, historical rate, behavioral anomaly
+
+- 5-dimension composite scoring: capability sensitivity, action severity, target sensitivity,
+  historical rate, behavioral anomaly
 - Asymmetric amplifier: fires when either action severity or target sensitivity exceeds 7.0
 - Fail-closed defaults: unknown action types and capability tiers score 9.0/10.0
-- Behavioral anomaly detection: severity trajectory shifts, target sensitivity shifts, fixation detection, denial rate monitoring
-- Explanation sanitization: attacker-controlled strings in risk explanations are stripped of HTML, quotes, newlines, and control characters
+- Behavioral anomaly detection: severity trajectory shifts, target sensitivity shifts, fixation
+  detection, denial rate monitoring
+- Explanation sanitization: attacker-controlled strings in risk explanations are stripped of HTML,
+  quotes, newlines, and control characters
 
 ### Immutability & Tamper Resistance
+
 - `MappingProxyType` for scoring weight tables (prevents dict mutation)
 - Immutable tuple for sensitive target patterns
 - `__slots__` and custom `__setattr__` on `RiskEngine` (blocks post-init mutation of thresholds and audit reference)
@@ -120,6 +132,7 @@ The ATM-1 Threat Matrix defines 7 attack surface categories. AEGIS Core covers a
 - Constant-time seal token comparison via `hmac.compare_digest` (prevents timing attacks)
 
 ### Concurrency Safety
+
 - Unified evaluation lock across capability + policy + risk stages (prevents TOCTOU)
 - Freeze checks inside locks on all mutation methods (7 methods fixed across 2 modules)
 - Thread-safe metrics collection with dedicated lock
@@ -128,6 +141,7 @@ The ATM-1 Threat Matrix defines 7 attack surface categories. AEGIS Core covers a
 - WAL checkpointing on audit database to prevent unbounded growth
 
 ### Audit Integrity
+
 - Append-only SQLite audit trail with WAL journal mode
 - Every decision recorded regardless of outcome (approved, denied, escalated)
 - Tool execution failures recorded separately from governance approvals
@@ -149,7 +163,9 @@ These findings are documented, accepted, and tracked for resolution in future ve
 | Agent identity spoofing | No transport-layer authentication on `agent_id` | v0.2.0 RFC-0002 (mTLS, bearer tokens) |
 | Parameter semantic analysis | Risk engine scores target string, not action parameters | v0.2.0 NLP/policy DSL |
 
-All accepted risks are mitigated by the AEGIS deployment model: the runtime operates inside a process isolation boundary (the AEGIS daemon) where the attack surface for code-level manipulation is constrained by the daemon's own security posture.
+All accepted risks are mitigated by the AEGIS deployment model: the runtime operates inside a
+process isolation boundary (the AEGIS daemon) where the attack surface for code-level manipulation
+is constrained by the daemon's own security posture.
 
 ---
 
@@ -159,13 +175,18 @@ All accepted risks are mitigated by the AEGIS deployment model: the runtime oper
 
 Two independent Claude Opus 4.6 sessions operated as competing teams:
 
-1. **Red team** — Attempted to break the runtime by crafting adversarial inputs, exploiting edge cases, manipulating internal state, and finding evasion paths through the governance pipeline.
+1. **Red team** — Attempted to break the runtime by crafting adversarial inputs, exploiting edge
+   cases, manipulating internal state, and finding evasion paths through the governance pipeline.
 
-2. **Blue team** — Fixed every vulnerability found by the red team, then hardened surrounding code preemptively. Fixes were validated by re-running all existing tests plus new tests targeting the specific vulnerability.
+2. **Blue team** — Fixed every vulnerability found by the red team, then hardened surrounding code
+   preemptively. Fixes were validated by re-running all existing tests plus new tests targeting the
+   specific vulnerability.
 
-3. **Role reversal** — After each round, sessions switched roles. The previous blue team attacked the other session's fixes; the previous red team defended.
+3. **Role reversal** — After each round, sessions switched roles. The previous blue team attacked
+   the other session's fixes; the previous red team defended.
 
-This adversarial structure ensures that fixes are tested by a session that did not write the fix, reducing confirmation bias.
+This adversarial structure ensures that fixes are tested by a session that did not write the fix,
+reducing confirmation bias.
 
 ### Test Categories
 
@@ -188,7 +209,8 @@ def test_shell_metacharacter_detection(self, runtime):
     ...
 ```
 
-Coverage is tracked programmatically in `tests/security/coverage.py`, which maintains the complete ATX-1/ATM-1 taxonomy and can generate coverage reports on demand.
+Coverage is tracked programmatically in `tests/security/coverage.py`, which maintains the complete
+ATX-1/ATM-1 taxonomy and can generate coverage reports on demand.
 
 ---
 
@@ -196,11 +218,12 @@ Coverage is tracked programmatically in `tests/security/coverage.py`, which main
 
 All tests run in under 2 seconds on commodity hardware:
 
-```
+```text
 353 passed in 1.40s
 ```
 
-Zero external dependencies. Zero network calls. Zero mocks of core behavior. The runtime is stdlib-only Python, and the test suite exercises it end-to-end through the public API.
+Zero external dependencies. Zero network calls. Zero mocks of core behavior. The runtime is
+stdlib-only Python, and the test suite exercises it end-to-end through the public API.
 
 ```bash
 cd core-py
@@ -209,4 +232,6 @@ python -m pytest tests/ -v
 
 ---
 
-*This report was generated from adversarial testing conducted on 2026-03-30 against aegis-core commit history. The AEGIS governance runtime is developed by the AEGIS Initiative (Finnoybu IP LLC).*
+*This report was generated from adversarial testing conducted on 2026-03-30 against aegis-core
+commit history. The AEGIS governance runtime is developed by the AEGIS Initiative
+(Finnoybu IP LLC).*

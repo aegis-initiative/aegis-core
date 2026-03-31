@@ -1,8 +1,11 @@
+<!-- markdownlint-disable MD024 MD025 -->
+
 # AEGIS Runtime Changelog
 
 All notable changes to the AEGIS Runtime reference implementation will be documented in this file.
 
-The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and versions are synchronized with the main [AEGIS Initiative Changelog](../CHANGELOG.md).
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
+and versions are synchronized with the main [AEGIS Initiative Changelog](../CHANGELOG.md).
 
 ---
 
@@ -22,7 +25,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 - **BT-AUDIT-001**: Shell redirect detection — added `<` and `>` to metachar pattern
 - **BT-AUDIT-002**: Immutable sensitive path patterns — gateway `list` converted to `tuple`
-- **BT-AUDIT-003**: TOCTOU prevention — freeze checks moved inside locks (7 methods across capability_registry + policy_engine)
+- **BT-AUDIT-003**: TOCTOU prevention — freeze checks moved inside locks
+  (7 methods across capability_registry + policy_engine)
 - **BT-AUDIT-004**: Timing-safe seal tokens — `hmac.compare_digest` on both registries
 - **BT-AUDIT-005**: Async depth tracking — `async_call` now tracks recursion depth (was missing)
 - **BT-AUDIT-006**: Reason sanitization — capability denial no longer leaks agent_id or target
@@ -196,7 +200,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 **Status:** ✅ **DRAFT SPECIFICATION PHASE**
 
-The AEGIS Runtime v0.1.0 defines the **reference architecture and design** for governance runtime implementation. This version establishes the runtime **specification** and **design patterns**. Full production-ready reference implementation is planned for v0.2.0 (Q2 2026).
+The AEGIS Runtime v0.1.0 defines the **reference architecture and design** for governance runtime
+implementation. This version establishes the runtime **specification** and **design patterns**.
+Full production-ready reference implementation is planned for v0.2.0 (Q2 2026).
 
 ## Added
 
@@ -382,7 +388,8 @@ The AEGIS Runtime v0.1.0 defines the **reference architecture and design** for g
 
 ## Roadmap
 
-See [AEGIS Initiative Roadmap](../aegis-core/roadmap/AEGIS_Roadmap.md) and [CHANGELOG](../CHANGELOG.md) for overall initiative timeline.
+See [AEGIS Initiative Roadmap](../aegis-core/roadmap/AEGIS_Roadmap.md) and
+[CHANGELOG](../CHANGELOG.md) for overall initiative timeline.
 
 ---
 

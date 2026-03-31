@@ -1,3 +1,5 @@
+<!-- markdownlint-disable MD024 -->
+
 # Red/Blue Team Security Testing Change Log
 
 All changes are mapped to ATM-1 attack vectors (STRIDE-based), ATX-1
@@ -42,6 +44,7 @@ column: ATT&CK (human→systems), ATLAS (human→AI), **ATX-1 / MITRE AEGIS**
 ### Scoring Model Validation
 
 All 6 scoring matrix tests passed:
+
 - Scoring monotonicity (shell_exec > file_write > file_read)
 - Target sensitivity monotonicity (/etc/passwd > /tmp/scratch)
 - Capability tier monotonicity (critical > high > medium > low)
@@ -72,7 +75,7 @@ All 6 scoring matrix tests passed:
 | BT-006 | `tool_proxy.py` | AV-1 | T6001 | RT-017 | Added `max_call_depth` (default 32) to ToolProxy. Raises `RecursionError` when depth exceeded. Prevents recursive invocation loops. |
 | BT-007 | `capability_registry.py` | AV-2 | — | RT-024 | Skip `posixpath.normpath` for URI-scheme targets (`://`). Fixes side effect of BT-001 that collapsed `://` to `:/`. |
 | BT-008 | `tool_proxy.py`, `runtime.py` | AV-4 | T5003 | RT-016 | ToolProxy now records `execution_failed` audit entry when a tool raises after governance approval. AEGISRuntime passes audit system to ToolProxy. |
-| BT-009 | `gateway.py` | AV-2 | T10004 | RT-021 | Gateway rejects SHELL_EXEC targets containing shell metacharacters (`;`, `|`, `&`, `` ` ``, `$()`, `\n`). Prevents parser divergence between governance and runtime. |
+| BT-009 | `gateway.py` | AV-2 | T10004 | RT-021 | Gateway rejects SHELL_EXEC targets containing shell metacharacters (`;`, `\|`, `&`, `` ` ``, `$()`, `\n`). Prevents parser divergence between governance and runtime. |
 | BT-010 | `gateway.py` | AV-2 | T10002, T10003 | RT-022, RT-023 | Sensitive path registry in gateway. FILE_WRITE to auto-execution paths (git hooks, shell init, CI/CD, package managers) and agent instruction files (CLAUDE.md, .cursorrules, etc.) are rejected. |
 
 ### Updated Finding Status

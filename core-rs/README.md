@@ -4,7 +4,8 @@ This directory will contain the Rust production runtime for the AEGIS governance
 
 ## Status
 
-**Not yet started.** The Python reference implementation in `core-py/` is being developed first to establish correctness and stabilize the governance protocol interfaces.
+**Not yet started.** The Python reference implementation in `core-py/` is being developed first to
+establish correctness and stabilize the governance protocol interfaces.
 
 ## Plan
 
