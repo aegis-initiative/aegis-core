@@ -332,11 +332,15 @@ class GovernanceGateway:
                 )
 
         # RT-008 / T6002: Enforce parameter size limit to prevent
-        # memory exhaustion via oversized payloads
+        # memory exhaustion via oversized payloads.
+        # L-2: Reject on serialization failure instead of defaulting to 0.
         try:
             params_size = len(json.dumps(action.parameters))
-        except (TypeError, ValueError):
-            params_size = 0
+        except (TypeError, ValueError) as exc:
+            raise AEGISValidationError(
+                f"AGPRequest.action.parameters cannot be serialized: {exc}",
+                error_code="PARAMETERS_UNSERIALIZABLE"
+            ) from exc
         if params_size > _MAX_PARAMETERS_SIZE_BYTES:
             raise AEGISValidationError(
                 f"AGPRequest.action.parameters exceeds maximum size "

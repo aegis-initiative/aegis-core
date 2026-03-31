@@ -136,6 +136,9 @@ class CapabilityRegistry:
     available.
     """
 
+    # M-9: Limit registered capabilities to prevent O(n*m) DoS
+    _MAX_CAPABILITIES = 10_000
+
     def __init__(self) -> None:
         self._capabilities: dict[str, Capability] = {}
         self._agent_capabilities: dict[str, set[str]] = {}
@@ -222,6 +225,11 @@ class CapabilityRegistry:
         """
         self._check_frozen()
         with self._lock:
+            if len(self._capabilities) >= self._MAX_CAPABILITIES:
+                raise AEGISCapabilityError(
+                    f"Registry at capacity ({self._MAX_CAPABILITIES})",
+                    error_code="REGISTRY_CAPACITY",
+                )
             if capability.id in self._capabilities:
                 raise ValueError(f"Capability '{capability.id}' is already registered.")
             self._capabilities[capability.id] = capability

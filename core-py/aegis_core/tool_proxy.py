@@ -244,9 +244,10 @@ class ToolProxy:
                     False,
                     error=response.reason,
                 )
+            # M-8: Don't leak internal IDs or full reason in exception
             raise PermissionError(
-                f"Tool call '{tool_name}' was {response.decision.value} by AEGIS: "
-                f"{response.reason} (audit_id={response.audit_id})"
+                f"Tool call '{tool_name}' was {response.decision.value} "
+                f"by governance policy."
             )
 
         # Execute the tool with depth tracking (M-6: thread-safe)
@@ -366,9 +367,10 @@ class ToolProxy:
                     False,
                     error=response.reason,
                 )
+            # M-8: Don't leak internal IDs or full reason in exception
             raise PermissionError(
-                f"Tool call '{tool_name}' was {response.decision.value} by AEGIS: "
-                f"{response.reason} (audit_id={response.audit_id})"
+                f"Tool call '{tool_name}' was {response.decision.value} "
+                f"by governance policy."
             )
 
         # Execute the async tool

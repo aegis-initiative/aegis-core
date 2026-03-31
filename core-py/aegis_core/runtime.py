@@ -144,10 +144,10 @@ class AEGISRuntime:
         if self._is_shutdown:
             return
 
-        # Close database connection
+        # L-6: Use public close() method instead of accessing _conn
         import contextlib
         with contextlib.suppress(Exception):
-            self._audit._conn.close()
+            self._audit.close()
 
         # Mark as shutdown
         self._is_shutdown = True

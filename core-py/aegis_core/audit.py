@@ -344,13 +344,17 @@ class AuditSystem:
             rows = cursor.fetchall()
         return [self._row_to_record(row) for row in rows]
 
-    def get_session_history(self, session_id: str) -> list[AuditRecord]:
-        """Return all audit records for a given session.
+    def get_session_history(
+        self, session_id: str, *, limit: int = 1000
+    ) -> list[AuditRecord]:
+        """Return audit records for a given session.
 
         Parameters
         ----------
         session_id : str
             The session identifier to retrieve history for.
+        limit : int, optional
+            Maximum number of records to return. Defaults to 1000 (L-4).
 
         Returns
         -------
@@ -360,8 +364,8 @@ class AuditSystem:
         with self._lock:
             cursor = self._conn.execute(
                 "SELECT * FROM audit_records "
-                "WHERE session_id = ? ORDER BY timestamp ASC",
-                (session_id,),
+                "WHERE session_id = ? ORDER BY timestamp ASC LIMIT ?",
+                (session_id, limit),
             )
             rows = cursor.fetchall()
         return [self._row_to_record(row) for row in rows]
@@ -415,6 +419,19 @@ class AuditSystem:
                     (agent_id,),
                 )
             return cursor.fetchone()[0]  # type: ignore
+
+    # ------------------------------------------------------------------
+    # Lifecycle (L-6)
+    # ------------------------------------------------------------------
+
+    def close(self) -> None:
+        """Close the database connection.
+
+        Safe to call multiple times. After closing, all write and
+        read operations will raise ``sqlite3.ProgrammingError``.
+        """
+        with self._lock:
+            self._conn.close()
 
     # ------------------------------------------------------------------
     # Helpers
