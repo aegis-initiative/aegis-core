@@ -15,8 +15,7 @@ finding it remediates.
 from __future__ import annotations
 
 import threading
-import time
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 import pytest
 
@@ -29,9 +28,6 @@ from aegis_core.exceptions import (
 )
 from aegis_core.policy_engine import Policy, PolicyCondition, PolicyEffect
 from aegis_core.protocol import (
-    AGPAction,
-    AGPContext,
-    AGPRequest,
     ActionType,
     Decision,
 )
@@ -43,10 +39,10 @@ from .conftest import (
     make_request,
 )
 
-
 # ===================================================================
 # PC-4: Input Validation & Sanitization
 # ===================================================================
+
 
 class TestInputValidation:
     """Validates gateway input validation controls (PC-4)."""
@@ -101,9 +97,7 @@ class TestInputValidation:
 
     def test_empty_session_id_rejected(self, runtime: AEGISRuntime):
         """Gateway rejects empty session_id."""
-        request = make_request(
-            agent_id="test-agent", target="test-target", session_id="x"
-        )
+        request = make_request(agent_id="test-agent", target="test-target", session_id="x")
         request.context.session_id = ""
         with pytest.raises(AEGISValidationError, match="session_id"):
             runtime.gateway.submit(request)
@@ -131,6 +125,7 @@ class TestInputValidation:
 # ===================================================================
 # SP-4: Capability Authorization Binding (Defense-in-Depth Layer 1)
 # ===================================================================
+
 
 class TestCapabilityControls:
     """Validates capability-based access control (SP-4)."""
@@ -189,7 +184,7 @@ class TestCapabilityControls:
             description="Already expired",
             action_types=[ActionType.TOOL_CALL.value],
             target_patterns=["*"],
-            expires_at=datetime.now(timezone.utc) - timedelta(seconds=1),
+            expires_at=datetime.now(UTC) - timedelta(seconds=1),
         )
         runtime.capabilities.register(expired_cap)
         runtime.capabilities.grant("agent", "cap-expired")
@@ -240,6 +235,7 @@ class TestCapabilityControls:
 # ===================================================================
 # Policy Evaluation Controls (Defense-in-Depth Layer 2)
 # ===================================================================
+
 
 class TestPolicyControls:
     """Validates deterministic policy evaluation."""
@@ -306,9 +302,7 @@ class TestPolicyControls:
 
         request = make_request()
         response = runtime.gateway.submit(request)
-        assert response.decision == Decision.DENIED, (
-            "Disabled allow policy should not grant access"
-        )
+        assert response.decision == Decision.DENIED, "Disabled allow policy should not grant access"
 
     def test_policy_validation_rejects_invalid(self, runtime: AEGISRuntime):
         """PolicyEngine rejects structurally invalid policies."""
@@ -355,6 +349,7 @@ class TestPolicyControls:
 # ===================================================================
 # SP-5: Audit Completeness (Defense-in-Depth Layer 3)
 # ===================================================================
+
 
 class TestAuditControls:
     """Validates audit trail completeness and integrity (SP-5)."""
@@ -453,14 +448,13 @@ class TestAuditControls:
         # Every response has a valid audit_id and the record exists
         for response in results:
             record = configured_runtime.audit.get_record(response.audit_id)
-            assert record is not None, (
-                f"Missing audit record for audit_id={response.audit_id}"
-            )
+            assert record is not None, f"Missing audit record for audit_id={response.audit_id}"
 
 
 # ===================================================================
 # Tool Proxy Controls
 # ===================================================================
+
 
 class TestToolProxyControls:
     """Validates governance interception at the tool proxy layer."""

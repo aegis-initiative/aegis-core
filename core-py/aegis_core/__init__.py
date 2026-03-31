@@ -57,38 +57,28 @@ from .tool_proxy import ToolProxy
 __all__ = [
     "AEGISAuditError",
     "AEGISCapabilityError",
-    # Exceptions
     "AEGISError",
-    # Error catalog
-    "errors",
     "AEGISPolicyError",
-    # Runtime facade
     "AEGISRuntime",
     "AEGISValidationError",
-    # Protocol
     "AGPAction",
     "AGPContext",
     "AGPRequest",
     "AGPResponse",
     "ActionType",
-    # Audit
     "AuditRecord",
     "AuditSystem",
-    # Capability Registry
     "Capability",
     "CapabilityRegistry",
     "Decision",
-    # Decision Engine
     "DecisionEngine",
-    # Gateway
     "GovernanceGateway",
-    # Policy Engine
     "Policy",
     "PolicyCondition",
     "PolicyEffect",
     "PolicyEngine",
     "PolicyEvaluation",
     "PolicyResult",
-    # Tool Proxy
     "ToolProxy",
+    "errors",
 ]

@@ -5,7 +5,6 @@ import pytest
 from aegis_core import AEGISRuntime
 from aegis_core.capability_registry import Capability
 from aegis_core.policy_engine import Policy, PolicyEffect
-from aegis_core.protocol import ActionType
 
 
 @pytest.fixture()
@@ -20,13 +19,15 @@ def runtime() -> AEGISRuntime:
     )
     rt.capabilities.register(cap)
     rt.capabilities.grant("agent-1", "cap-tools")
-    rt.policies.add_policy(Policy(
-        id="pol-allow",
-        name="Allow all tools",
-        description="",
-        effect=PolicyEffect.ALLOW,
-        conditions=[],
-    ))
+    rt.policies.add_policy(
+        Policy(
+            id="pol-allow",
+            name="Allow all tools",
+            description="",
+            effect=PolicyEffect.ALLOW,
+            conditions=[],
+        )
+    )
     return rt
 
 

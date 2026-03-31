@@ -28,7 +28,7 @@ Usage:
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from enum import Enum
 
 
@@ -50,6 +50,7 @@ class Status(str, Enum):
 @dataclass
 class Finding:
     """A single red team finding."""
+
     id: str
     title: str
     severity: Severity
@@ -60,21 +61,18 @@ class Finding:
     reproduction: str
     status: Status = Status.OPEN
     round_discovered: int = 1
-    timestamp: str = field(
-        default_factory=lambda: datetime.now(timezone.utc).isoformat()
-    )
+    timestamp: str = field(default_factory=lambda: datetime.now(UTC).isoformat())
 
 
 @dataclass
 class Fix:
     """A blue team fix for a finding."""
+
     finding_id: str
     round_number: int
     description: str
     commit_ref: str = ""
-    timestamp: str = field(
-        default_factory=lambda: datetime.now(timezone.utc).isoformat()
-    )
+    timestamp: str = field(default_factory=lambda: datetime.now(UTC).isoformat())
 
 
 class FindingsTracker:

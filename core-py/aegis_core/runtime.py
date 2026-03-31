@@ -146,6 +146,7 @@ class AEGISRuntime:
 
         # L-6: Use public close() method instead of accessing _conn
         import contextlib
+
         with contextlib.suppress(Exception):
             self._audit.close()
 

@@ -328,8 +328,10 @@ class PolicyEngine:
             )
 
         valid_effects = (
-            PolicyEffect.ALLOW, PolicyEffect.DENY,
-            PolicyEffect.ESCALATE, PolicyEffect.REQUIRE_CONFIRMATION,
+            PolicyEffect.ALLOW,
+            PolicyEffect.DENY,
+            PolicyEffect.ESCALATE,
+            PolicyEffect.REQUIRE_CONFIRMATION,
         )
         if policy.effect not in valid_effects:
             raise AEGISPolicyError(
@@ -511,8 +513,7 @@ class PolicyEngine:
             return PolicyResult(
                 decision=Decision.REQUIRE_CONFIRMATION,
                 reason=(
-                    f"Human confirmation required by "
-                    f"policy '{first_require_confirmation.name}'."
+                    f"Human confirmation required by policy '{first_require_confirmation.name}'."
                 ),
                 evaluations=evaluations,
             )

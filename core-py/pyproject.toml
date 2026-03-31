@@ -50,6 +50,18 @@ line-length = 100
 [tool.ruff.lint]
 select = ["E", "F", "I", "N", "W", "UP", "B", "SIM", "RUF"]
 
+[tool.ruff.lint.per-file-ignores]
+# Tests: allow long lines, unused vars, ambiguous unicode (security evasion
+# tests use intentional homoglyphs), unconventional class names, lambda
+# assignment, contextlib.suppress suggestions, unused loop vars, and
+# pytest.raises match patterns that ruff flags as ambiguous.
+"tests/**" = [
+    "E501", "F841", "B007", "N801", "E731", "SIM105",
+    "RUF001", "RUF002", "RUF003", "RUF043", "UP042",
+]
+# Scripts: allow late imports and long lines.
+"scripts/**" = ["E402", "E501"]
+
 [tool.mypy]
 python_version = "3.11"
 strict = true

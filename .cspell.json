@@ -8,7 +8,12 @@
     "SIEM", "STIX", "Tannenbaum", "Zenodo", "zenodo",
     "Saltzer", "Shapira", "Moens", "Mattijs", "Freestone",
     "inspectable", "markdownlint", "crossref", "OpenAIRE",
-    "tamper-evident", "exfiltration", "wordmark", "wordmarks"
+    "tamper-evident", "exfiltration", "wordmark", "wordmarks",
+    "cursorrules", "checkpointing", "Dockerfiles",
+    "deque", "embedder", "fullwidth", "hmac", "metachar",
+    "metacharacter", "metacharacters", "mypy", "NFKC", "nohup",
+    "normpath", "posixpath", "pyproject", "pytest", "sandboxing",
+    "setattr", "stdlib", "subtechnique", "TOCTOU", "venv", "wipefs"
   ],
   "ignorePaths": [
     "node_modules/**",

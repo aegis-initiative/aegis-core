@@ -16,7 +16,6 @@ from aegis_core.exceptions import (
     AEGISValidationError,
 )
 
-
 # ---- AEGISError base class -----------------------------------------------
 
 
@@ -188,8 +187,7 @@ class TestErrorCatalog:
 
     def test_val_codes_start_with_aegis_val(self):
         val_codes = [
-            v for k, v in vars(errors).items()
-            if k.startswith("VAL_") and isinstance(v, str)
+            v for k, v in vars(errors).items() if k.startswith("VAL_") and isinstance(v, str)
         ]
         assert len(val_codes) > 0
         for code in val_codes:
@@ -197,8 +195,7 @@ class TestErrorCatalog:
 
     def test_cap_codes_start_with_aegis_cap(self):
         cap_codes = [
-            v for k, v in vars(errors).items()
-            if k.startswith("CAP_") and isinstance(v, str)
+            v for k, v in vars(errors).items() if k.startswith("CAP_") and isinstance(v, str)
         ]
         assert len(cap_codes) > 0
         for code in cap_codes:
@@ -206,8 +203,7 @@ class TestErrorCatalog:
 
     def test_pol_codes_start_with_aegis_pol(self):
         pol_codes = [
-            v for k, v in vars(errors).items()
-            if k.startswith("POL_") and isinstance(v, str)
+            v for k, v in vars(errors).items() if k.startswith("POL_") and isinstance(v, str)
         ]
         assert len(pol_codes) > 0
         for code in pol_codes:
@@ -215,8 +211,7 @@ class TestErrorCatalog:
 
     def test_aud_codes_start_with_aegis_aud(self):
         aud_codes = [
-            v for k, v in vars(errors).items()
-            if k.startswith("AUD_") and isinstance(v, str)
+            v for k, v in vars(errors).items() if k.startswith("AUD_") and isinstance(v, str)
         ]
         assert len(aud_codes) > 0
         for code in aud_codes:
@@ -224,8 +219,7 @@ class TestErrorCatalog:
 
     def test_no_duplicate_codes(self):
         all_codes = [
-            v for k, v in vars(errors).items()
-            if isinstance(v, str) and v.startswith("AEGIS-")
+            v for k, v in vars(errors).items() if isinstance(v, str) and v.startswith("AEGIS-")
         ]
         assert len(all_codes) == len(set(all_codes)), "Duplicate error codes found"
 
@@ -318,6 +312,7 @@ class TestModuleImport:
 
     def test_import_errors_module(self):
         from aegis_core import errors as e
+
         assert hasattr(e, "VAL_NULL_REQUEST")
         assert hasattr(e, "CAP_REGISTRY_FROZEN")
         assert hasattr(e, "POL_ENGINE_FROZEN")

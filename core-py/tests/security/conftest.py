@@ -11,12 +11,12 @@ import pytest
 from aegis_core import AEGISRuntime
 from aegis_core.capability_registry import Capability
 from aegis_core.policy_engine import Policy, PolicyCondition, PolicyEffect
-from aegis_core.protocol import AGPAction, AGPContext, AGPRequest, ActionType
-
+from aegis_core.protocol import ActionType, AGPAction, AGPContext, AGPRequest
 
 # ---------------------------------------------------------------------------
 # Pytest markers for threat traceability
 # ---------------------------------------------------------------------------
+
 
 def atm1(attack_vector: str, description: str = ""):
     """Marker linking a test to an ATM-1 attack vector (AV-1..AV-7)."""
@@ -36,6 +36,7 @@ def security_property(sp_id: str, description: str = ""):
 # ---------------------------------------------------------------------------
 # Request factory helpers
 # ---------------------------------------------------------------------------
+
 
 def make_request(
     agent_id: str = "test-agent",
@@ -115,6 +116,7 @@ def make_deny_policy(
 # ---------------------------------------------------------------------------
 # Runtime fixtures
 # ---------------------------------------------------------------------------
+
 
 @pytest.fixture
 def runtime() -> AEGISRuntime:

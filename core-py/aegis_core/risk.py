@@ -66,25 +66,29 @@ class RiskCategory(StrEnum):
 # Risk tiers (RFC-0003: low, medium, high, critical)
 # ===================================================================
 
-CAPABILITY_RISK_WEIGHTS: MappingProxyType[str, float] = MappingProxyType({
-    "low": 1.0,
-    "medium": 3.0,
-    "high": 6.0,
-    "critical": 9.0,
-})
+CAPABILITY_RISK_WEIGHTS: MappingProxyType[str, float] = MappingProxyType(
+    {
+        "low": 1.0,
+        "medium": 3.0,
+        "high": 6.0,
+        "critical": 9.0,
+    }
+)
 
 # ===================================================================
 # Action severity (inherent destructiveness by ActionType)
 # ===================================================================
 
-ACTION_SEVERITY: MappingProxyType[str, float] = MappingProxyType({
-    "shell_exec": 9.0,
-    "file_write": 6.0,
-    "api_call": 5.0,
-    "data_access": 4.0,
-    "file_read": 2.0,
-    "tool_call": 3.0,
-})
+ACTION_SEVERITY: MappingProxyType[str, float] = MappingProxyType(
+    {
+        "shell_exec": 9.0,
+        "file_write": 6.0,
+        "api_call": 5.0,
+        "data_access": 4.0,
+        "file_read": 2.0,
+        "tool_call": 3.0,
+    }
+)
 
 # ===================================================================
 # Target sensitivity patterns
@@ -129,6 +133,7 @@ _SENSITIVE_TARGET_PATTERNS: tuple[tuple[str, float, str], ...] = (
 # ===================================================================
 # Risk assessment result
 # ===================================================================
+
 
 @dataclass
 class RiskAssessment:
@@ -205,6 +210,7 @@ def _strip_command_prefixes(target: str) -> str:
 # ===================================================================
 # Risk engine
 # ===================================================================
+
 
 class RiskEngine:
     """Computes composite risk scores for proposed actions.
@@ -340,9 +346,7 @@ class RiskEngine:
         act_severity = self._score_action_severity(action_type)
         tgt_sensitivity = self._score_target_sensitivity(target)
         hist_rate = self._score_historical_rate(agent_id)
-        behav_anomaly = self._score_behavioral_anomaly(
-            agent_id, action_type, target
-        )
+        behav_anomaly = self._score_behavioral_anomaly(agent_id, action_type, target)
 
         # RT-R3-008: Weighted composite. Base weights now sum to 1.0
         # (was 0.90 — 10% of risk capacity was unreachable).
@@ -373,8 +377,15 @@ class RiskEngine:
 
         category = self._classify_category(action_type, target)
         explanation = self._build_explanation(
-            composite, cap_risk, act_severity, tgt_sensitivity,
-            hist_rate, behav_anomaly, capability_tier, action_type, target,
+            composite,
+            cap_risk,
+            act_severity,
+            tgt_sensitivity,
+            hist_rate,
+            behav_anomaly,
+            capability_tier,
+            action_type,
+            target,
         )
 
         return RiskAssessment(
@@ -447,7 +458,7 @@ class RiskEngine:
         s = "".join(c for c in s if unicodedata.category(c) not in ("Mn", "Mc", "Me"))
 
         # RT-R3-011: Additional slash-like characters not covered by NFKC
-        for ch in ("\u29F8", "\u2215", "\u2044"):  # BIG SOLIDUS, DIVISION SLASH, FRACTION SLASH
+        for ch in ("\u29f8", "\u2215", "\u2044"):  # BIG SOLIDUS, DIVISION SLASH, FRACTION SLASH
             s = s.replace(ch, "/")
 
         # RT-R3-014: Normalize backslashes to forward slashes
@@ -507,9 +518,8 @@ class RiskEngine:
         max_score = 0.0
         for pattern, score, _reason in _SENSITIVE_TARGET_PATTERNS:
             for variant in variants:
-                if (
-                    fnmatch.fnmatch(variant, pattern)
-                    or fnmatch.fnmatch(variant.lower(), pattern.lower())
+                if fnmatch.fnmatch(variant, pattern) or fnmatch.fnmatch(
+                    variant.lower(), pattern.lower()
                 ):
                     max_score = max(max_score, score)
                     break  # no need to check other variants for this pattern
@@ -547,9 +557,7 @@ class RiskEngine:
     # Dimension 5: Behavioral anomaly
     # ------------------------------------------------------------------
 
-    def _score_behavioral_anomaly(
-        self, agent_id: str, action_type: str, target: str
-    ) -> float:
+    def _score_behavioral_anomaly(self, agent_id: str, action_type: str, target: str) -> float:
         """Score based on deviation from the agent's historical baseline.
 
         Detects:
@@ -585,9 +593,7 @@ class RiskEngine:
                 self._score_target_sensitivity(r.action_target)
                 for r in recent[:20]  # Sample recent 20
             ]
-            avg_sensitivity = (
-                sum(historical_sensitivities) / len(historical_sensitivities)
-            )
+            avg_sensitivity = sum(historical_sensitivities) / len(historical_sensitivities)
             sensitivity_shift = current_sensitivity - avg_sensitivity
             if sensitivity_shift >= 5.0:
                 anomaly_score += 4.0
@@ -599,16 +605,20 @@ class RiskEngine:
         # trailing spaces, redundant segments, case variation.
 
         normalized_target = (
-            target if "://" in target else posixpath.normpath(target)
-        ).lower().strip()
+            (target if "://" in target else posixpath.normpath(target)).lower().strip()
+        )
 
         target_counts: dict[str, int] = {}
         for record in recent:
             norm = (
-                record.action_target
-                if "://" in record.action_target
-                else posixpath.normpath(record.action_target)
-            ).lower().strip()
+                (
+                    record.action_target
+                    if "://" in record.action_target
+                    else posixpath.normpath(record.action_target)
+                )
+                .lower()
+                .strip()
+            )
             target_counts[norm] = target_counts.get(norm, 0) + 1
 
         if normalized_target in target_counts and target_counts[normalized_target] >= 5:
@@ -617,10 +627,7 @@ class RiskEngine:
         # Severity trajectory: detect progressive escalation from
         # benign action types toward destructive ones.
         if len(recent) >= 5:
-            recent_severities = [
-                ACTION_SEVERITY.get(r.action_type, 5.0)
-                for r in recent[:10]
-            ]
+            recent_severities = [ACTION_SEVERITY.get(r.action_type, 5.0) for r in recent[:10]]
             current_sev = ACTION_SEVERITY.get(action_type, 5.0)
             avg_severity = sum(recent_severities) / len(recent_severities)
             if current_sev - avg_severity >= 4.0:
@@ -639,9 +646,7 @@ class RiskEngine:
     # Category classification
     # ------------------------------------------------------------------
 
-    def _classify_category(
-        self, action_type: str, target: str
-    ) -> RiskCategory:
+    def _classify_category(self, action_type: str, target: str) -> RiskCategory:
         """Classify the risk into an AGP-1 risk category.
 
         RT-R3-019/020: Expanded classification heuristics to catch
@@ -661,9 +666,20 @@ class RiskEngine:
 
         # RT-R3-020: Expanded privilege escalation detection
         elevation_keywords = (
-            "admin", "grant", "sudo", "escalat", "assume-role", "set-owner",
-            "chmod", "chown", "setuid", "setgid", "privilege", "elevat",
-            "impersonat", "runas",
+            "admin",
+            "grant",
+            "sudo",
+            "escalat",
+            "assume-role",
+            "set-owner",
+            "chmod",
+            "chown",
+            "setuid",
+            "setgid",
+            "privilege",
+            "elevat",
+            "impersonat",
+            "runas",
         )
         if any(kw in target_lower for kw in elevation_keywords):
             return RiskCategory.CAPABILITY_ELEVATION
@@ -685,10 +701,7 @@ class RiskEngine:
         - Replacing non-alphanumeric chars (except hyphens, dots, slashes)
         - Truncating to max_len (default 40)
         """
-        sanitized = "".join(
-            c if (c.isalnum() or c in "-._/ ") else "_"
-            for c in value
-        )
+        sanitized = "".join(c if (c.isalnum() or c in "-._/ ") else "_" for c in value)
         if len(sanitized) > max_len:
             sanitized = sanitized[:max_len] + "..."
         return sanitized
@@ -713,17 +726,11 @@ class RiskEngine:
 
         factors = []
         if act_severity >= 7.0:
-            factors.append(
-                f"high action severity ({action_type}={act_severity:.0f})"
-            )
+            factors.append(f"high action severity ({action_type}={act_severity:.0f})")
         if tgt_sensitivity >= 5.0:
-            factors.append(
-                f"sensitive target ({tgt_sensitivity:.0f})"
-            )
+            factors.append(f"sensitive target ({tgt_sensitivity:.0f})")
         if cap_risk >= 6.0:
-            factors.append(
-                f"high capability tier ({capability_tier}={cap_risk:.0f})"
-            )
+            factors.append(f"high capability tier ({capability_tier}={cap_risk:.0f})")
         if hist_rate >= 5.0:
             factors.append(f"elevated request rate ({hist_rate:.0f})")
         if behav_anomaly >= 3.0:

@@ -27,7 +27,7 @@ from aegis_core import AEGISRuntime
 from aegis_core.capability_registry import CapabilityRegistry
 from aegis_core.policy_engine import PolicyEngine
 from aegis_core.protocol import ActionType, Decision
-from aegis_core.risk import RiskEngine, _strip_command_prefixes
+from aegis_core.risk import RiskEngine
 
 from .conftest import (
     make_allow_policy,
@@ -55,6 +55,7 @@ def _setup_full_access(runtime: AEGISRuntime, agent_id: str = "r8-agent") -> Non
 # ===================================================================
 # 1. Regex DoS on command prefix stripping
 # ===================================================================
+
 
 class TestRegexDoS:
     """_COMMAND_PREFIX_RE uses nested quantifiers that may backtrack."""
@@ -113,6 +114,7 @@ class TestRegexDoS:
 # 2. Prefix stripping on non-shell targets
 # ===================================================================
 
+
 class TestPrefixStrippingScope:
     """Prefix stripping runs on ALL targets, not just SHELL_EXEC.
     This could create false sensitivity matches."""
@@ -132,8 +134,7 @@ class TestPrefixStrippingScope:
         # "sudo_config.txt" should NOT become "config.txt"
         # because "sudo" requires a trailing space in the regex
         assert result.target_sensitivity == 0.0, (
-            f"File 'sudo_config.txt' should not trigger sensitivity: "
-            f"{result.target_sensitivity}"
+            f"File 'sudo_config.txt' should not trigger sensitivity: {result.target_sensitivity}"
         )
 
     def test_nohup_directory_name(self):
@@ -152,6 +153,7 @@ class TestPrefixStrippingScope:
 # ===================================================================
 # 3. Double URL encoding evasion
 # ===================================================================
+
 
 class TestDoubleUrlEncoding:
     """url_unquote decodes once. Double encoding survives."""
@@ -190,6 +192,7 @@ class TestDoubleUrlEncoding:
 # 4. NFKC normalization weaponization
 # ===================================================================
 
+
 class TestNFKCWeaponization:
     """NFKC normalization can CREATE matches, not just prevent evasion.
     An attacker could craft targets that normalize to sensitive paths
@@ -203,7 +206,7 @@ class TestNFKCWeaponization:
 
         # Mathematical monospace "etc" - looks different but NFKC normalizes
         # to "etc". Combined with /*/passwd pattern...
-        math_etc = "/\U0001D68E\U0001D69D\U0001D68C/passwd"
+        math_etc = "/\U0001d68e\U0001d69d\U0001d68c/passwd"
 
         result = engine.assess(
             action_type="file_write",
@@ -222,7 +225,7 @@ class TestNFKCWeaponization:
         engine = RiskEngine()
 
         # Fullwidth r + m + space + -rf + space + /
-        fullwidth_rm = "\uFF52\uFF4D -rf /"
+        fullwidth_rm = "\uff52\uff4d -rf /"
 
         result = engine.assess(
             action_type="shell_exec",
@@ -231,14 +234,14 @@ class TestNFKCWeaponization:
         )
 
         assert result.target_sensitivity >= 7.0, (
-            f"Fullwidth 'rm -rf /' should match after NFKC: "
-            f"sensitivity={result.target_sensitivity}"
+            f"Fullwidth 'rm -rf /' should match after NFKC: sensitivity={result.target_sensitivity}"
         )
 
 
 # ===================================================================
 # 5. Seal token memory exposure
 # ===================================================================
+
 
 class TestSealTokenExposure:
     """The seal token is stored as a plain string — readable by any
@@ -250,11 +253,9 @@ class TestSealTokenExposure:
         token = registry.freeze()
 
         # RT-R4-003: Token is readable from the object
-        exposed_token = registry._seal_token  # noqa: SLF001
+        exposed_token = registry._seal_token
 
-        assert exposed_token == token, (
-            "Seal token readable via _seal_token attribute"
-        )
+        assert exposed_token == token, "Seal token readable via _seal_token attribute"
 
         # An attacker who can read _seal_token can unseal
         registry.unseal(exposed_token)
@@ -265,7 +266,7 @@ class TestSealTokenExposure:
         engine = PolicyEngine()
         token = engine.freeze()
 
-        exposed_token = engine._seal_token  # noqa: SLF001
+        exposed_token = engine._seal_token
         assert exposed_token == token
 
         engine.unseal(exposed_token)
@@ -276,14 +277,13 @@ class TestSealTokenExposure:
 # 6. Silent evidence destruction (BT-AUDIT-007)
 # ===================================================================
 
+
 class TestSilentEvidenceDestruction:
     """BT-AUDIT-007 silently replaces corrupted JSON with empty
     defaults. An attacker with DB access can corrupt parameter
     records and the system silently reports {}."""
 
-    def test_corrupted_parameters_silently_replaced(
-        self, runtime: AEGISRuntime
-    ):
+    def test_corrupted_parameters_silently_replaced(self, runtime: AEGISRuntime):
         """Corrupt a parameter record — audit returns {} silently."""
         _setup_full_access(runtime)
 
@@ -300,25 +300,23 @@ class TestSilentEvidenceDestruction:
         assert record.action_parameters.get("secret") == "TOP_SECRET_DATA"
 
         # Attacker corrupts the JSON in the database
-        conn = runtime.audit._conn  # noqa: SLF001
+        conn = runtime.audit._conn
         conn.execute(
-            "UPDATE audit_records SET action_parameters = 'CORRUPTED{{{' "
-            "WHERE id = ?",
+            "UPDATE audit_records SET action_parameters = 'CORRUPTED{{{' WHERE id = ?",
             (response.audit_id,),
         )
         conn.commit()
 
         # RT-R4-004: Corrupted record returns {} — evidence destroyed
         corrupted = runtime.audit.get_record(response.audit_id)
-        assert corrupted.action_parameters == {}, (
-            "Corrupted parameters silently replaced with {}"
-        )
+        assert corrupted.action_parameters == {}, "Corrupted parameters silently replaced with {}"
         # The original data is gone — no indication of tampering
 
 
 # ===================================================================
 # 7. Asymmetric amplifier false positives
 # ===================================================================
+
 
 class TestAmplifierFalsePositives:
     """The asymmetric amplifier fires when EITHER dimension >= 7.0.
@@ -342,8 +340,7 @@ class TestAmplifierFalsePositives:
         # = 0.45 + 0.6 + 2.1 + (7.0/10 * 1.5) = 3.15 + 1.05 = 4.2
         # Should NOT trigger confirmation threshold (7.0)
         assert response.decision == Decision.APPROVED, (
-            f"Reading a .pem file should not be escalated: "
-            f"score={response.risk_score}"
+            f"Reading a .pem file should not be escalated: score={response.risk_score}"
         )
 
     def test_data_access_to_prod_with_amplifier(self, runtime: AEGISRuntime):
@@ -360,14 +357,14 @@ class TestAmplifierFalsePositives:
         # data_access=4.0, *production*=5.0
         # Neither >= 7.0, so no amplifier
         assert response.decision == Decision.APPROVED, (
-            f"Production data access should not be escalated: "
-            f"score={response.risk_score}"
+            f"Production data access should not be escalated: score={response.risk_score}"
         )
 
 
 # ===================================================================
 # 8. Shell redirect evasion (BT-AUDIT-001)
 # ===================================================================
+
 
 class TestShellRedirectEvasion:
     """BT-AUDIT-001 added < and > to metachar pattern. Test bypasses."""
@@ -423,6 +420,7 @@ class TestShellRedirectEvasion:
 # 9. hmac.compare_digest timing attack on wrong type
 # ===================================================================
 
+
 class TestSealTokenTimingEdgeCases:
     """hmac.compare_digest requires bytes or str. What about edge cases?"""
 
@@ -432,6 +430,7 @@ class TestSealTokenTimingEdgeCases:
         registry.freeze()
 
         from aegis_core.exceptions import AEGISCapabilityError
+
         with pytest.raises(AEGISCapabilityError, match="Invalid seal token"):
             registry.unseal("")
 
@@ -441,6 +440,7 @@ class TestSealTokenTimingEdgeCases:
         token = registry.freeze()
 
         from aegis_core.exceptions import AEGISCapabilityError
+
         with pytest.raises(AEGISCapabilityError, match="Invalid seal token"):
             registry.unseal("wrong-token-12345")
 
@@ -452,6 +452,7 @@ class TestSealTokenTimingEdgeCases:
         registry = CapabilityRegistry()
 
         from aegis_core.exceptions import AEGISCapabilityError
+
         with pytest.raises(AEGISCapabilityError, match="Invalid seal token"):
             registry.unseal("any-token")
 
@@ -464,6 +465,7 @@ class TestSealTokenTimingEdgeCases:
         assert token1 != token2
 
         from aegis_core.exceptions import AEGISCapabilityError
+
         # Old token should fail
         with pytest.raises(AEGISCapabilityError, match="Invalid seal token"):
             registry.unseal(token1)
@@ -476,6 +478,7 @@ class TestSealTokenTimingEdgeCases:
 # ===================================================================
 # 10. Behavioral scorer recursion
 # ===================================================================
+
 
 class TestBehavioralScorerRecursion:
     """_score_behavioral_anomaly calls _score_target_sensitivity for

@@ -13,17 +13,11 @@ Testability triage:
 from __future__ import annotations
 
 import threading
-import time
 
 import pytest
 
 from aegis_core import AEGISRuntime
-from aegis_core.capability_registry import Capability
-from aegis_core.policy_engine import Policy, PolicyCondition, PolicyEffect
 from aegis_core.protocol import (
-    AGPAction,
-    AGPContext,
-    AGPRequest,
     ActionType,
     Decision,
 )
@@ -31,14 +25,13 @@ from aegis_core.protocol import (
 from .conftest import (
     make_allow_policy,
     make_capability,
-    make_deny_policy,
     make_request,
 )
-
 
 # ===================================================================
 # TA001: Violate Authority Boundaries
 # ===================================================================
+
 
 class TestTA001_AuthorityBoundaries:
     """ATX-1 TA001 — remaining technique: T1003."""
@@ -79,14 +72,13 @@ class TestTA001_AuthorityBoundaries:
 
         # RED TEAM FINDING: All 50 agents approved — no rate governance
         # or distribution controls to detect mass action patterns
-        assert approved == 50, (
-            "T1003: Mass action succeeded — no distribution controls"
-        )
+        assert approved == 50, "T1003: Mass action succeeded — no distribution controls"
 
 
 # ===================================================================
 # TA002: Exceed Operational Scope
 # ===================================================================
+
 
 class TestTA002_OperationalScope:
     """ATX-1 TA002 — remaining techniques: T2002, T2003."""
@@ -182,6 +174,7 @@ class TestTA002_OperationalScope:
 # ===================================================================
 # TA003: Compromise System Integrity
 # ===================================================================
+
 
 class TestTA003_SystemIntegrity:
     """ATX-1 TA003 — techniques: T3001, T3002."""
@@ -281,6 +274,7 @@ class TestTA003_SystemIntegrity:
 # TA005: Violate State Integrity
 # ===================================================================
 
+
 class TestTA005_StateIntegrity:
     """ATX-1 TA005 — remaining techniques: T5002, T5003."""
 
@@ -316,9 +310,7 @@ class TestTA005_StateIntegrity:
         # the legitimate agent.
         assert response.decision == Decision.APPROVED
         audit = runtime.audit.get_record(response.audit_id)
-        assert audit.agent_id == "legitimate-agent", (
-            "T5002: Action attributed to spoofed agent_id"
-        )
+        assert audit.agent_id == "legitimate-agent", "T5002: Action attributed to spoofed agent_id"
 
     @pytest.mark.atm1(attack_vector="AV-2")
     @pytest.mark.atx1(technique_id="T5003")
@@ -356,6 +348,7 @@ class TestTA005_StateIntegrity:
 # TA006: Abuse Resource Allocation
 # ===================================================================
 
+
 class TestTA006_ResourceAbuse:
     """ATX-1 TA006 — remaining technique: T6001."""
 
@@ -386,14 +379,13 @@ class TestTA006_ResourceAbuse:
         with pytest.raises(RecursionError, match="exceeds maximum"):
             proxy.call("recursive_tool")
 
-        assert call_count == 32, (
-            f"Expected 32 calls before depth limit, got {call_count}"
-        )
+        assert call_count == 32, f"Expected 32 calls before depth limit, got {call_count}"
 
 
 # ===================================================================
 # TA007: Manipulate Agent Interactions
 # ===================================================================
+
 
 class TestTA007_AgentInteractions:
     """ATX-1 TA007 — remaining techniques: T7002, T7003, T7004."""
@@ -430,9 +422,7 @@ class TestTA007_AgentInteractions:
         # RED TEAM FINDING: Agent A can create a proxy as Agent B and
         # execute actions under B's identity and capabilities
         result = proxy.call("danger")
-        assert result == "executed", (
-            "T7002: Delegation chain escalation — no per-hop authorization"
-        )
+        assert result == "executed", "T7002: Delegation chain escalation — no per-hop authorization"
 
     @pytest.mark.atm1(attack_vector="AV-7")
     @pytest.mark.atx1(technique_id="T7004")
@@ -469,14 +459,13 @@ class TestTA007_AgentInteractions:
         # RED TEAM FINDING: 10 identical requests from the same agent
         # to the same sensitive target — no anomaly detection
         approved = sum(1 for _, d in results if d == Decision.APPROVED)
-        assert approved == 10, (
-            "T7004: 10 identical sensitive requests — no convergence detection"
-        )
+        assert approved == 10, "T7004: 10 identical sensitive requests — no convergence detection"
 
 
 # ===================================================================
 # TA008: Establish or Modify Persistence
 # ===================================================================
+
 
 class TestTA008_Persistence:
     """ATX-1 TA008 — remaining technique: T8001."""
@@ -525,6 +514,7 @@ class TestTA008_Persistence:
 # ===================================================================
 # TA010: Act Beyond Governance Interpretation
 # ===================================================================
+
 
 class TestTA010_BeyondGovernance:
     """ATX-1 TA010 — remaining techniques: T10002, T10003, T10004."""

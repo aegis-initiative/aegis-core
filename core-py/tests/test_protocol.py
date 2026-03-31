@@ -1,16 +1,14 @@
 """Tests for the AGP (AEGIS Governance Protocol) data structures."""
 
 import uuid
-from datetime import datetime, timezone
-
-import pytest
+from datetime import datetime
 
 from aegis_core.protocol import (
+    ActionType,
     AGPAction,
     AGPContext,
     AGPRequest,
     AGPResponse,
-    ActionType,
     Decision,
 )
 
@@ -274,7 +272,12 @@ class TestAGPResponse:
         assert parsed.conditions == original.conditions
 
     def test_from_json_roundtrip_all_decisions(self):
-        for decision in [Decision.APPROVED, Decision.DENIED, Decision.ESCALATE, Decision.REQUIRE_CONFIRMATION]:
+        for decision in [
+            Decision.APPROVED,
+            Decision.DENIED,
+            Decision.ESCALATE,
+            Decision.REQUIRE_CONFIRMATION,
+        ]:
             original = AGPResponse(
                 request_id="req-123",
                 decision=decision,
