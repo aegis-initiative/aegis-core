@@ -6,6 +6,102 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ---
 
+# [0.1.1b1] — 2026-03-30
+
+**Status:** BETA — Security-hardened reference implementation
+
+## Added
+
+### Security Test Suite
+
+- ✅ **Red/Blue Team Framework** — 8 rounds of adversarial testing grounded in ATM-1/ATX-1
+  - 353 security tests across 8 test files
+  - 29/29 applicable ATX-1 techniques covered (100%)
+  - 6/7 ATM-1 attack vectors exercised (AV-6 N/A at engine layer)
+  - 5/5 security properties validated
+  - ATX-1 coverage tracker with per-technique traceability
+  - Findings tracker with ATM-1/ATX-1 mapping and round-by-round changelog
+
+### Risk Engine (Stage 3 — Proportionality Gate)
+
+- ✅ **5-dimension risk scoring** (0.0-10.0 scale, AGP-1 aligned)
+  - Capability sensitivity (RFC-0003 risk tiers)
+  - Action severity (SHELL_EXEC=9.0 down to FILE_READ=2.0)
+  - Target sensitivity (pattern matching with normalization)
+  - Historical attempt rate (from audit trail)
+  - Behavioral anomaly (sensitivity shift, fixation, trajectory, denial rate)
+- ✅ **Proportionality gate** — APPROVED decisions overridden to REQUIRE_CONFIRMATION (>=7.0) or ESCALATE (>=9.0)
+- ✅ **Asymmetric amplifier** — fires when EITHER action OR target severity >= 7.0
+- ✅ **AGP-1 response fields** — risk_score, risk_category, risk_breakdown in AGPResponse
+
+## Security Hardening (27 fixes)
+
+### Gateway (BT-001 through BT-010)
+
+- Path traversal prevention via posixpath.normpath
+- Request replay detection (bounded deque, 10K window)
+- Parameter size validation (1MB max)
+- Shell metacharacter detection (`;|&\`$()<>`, newlines)
+- Sensitive path registry for auto-execution and agent instruction files
+- Path normalization in sensitive path matching
+
+### Decision Engine (BT-005, BT-011)
+
+- Unified evaluation lock across all 3 pipeline stages (TOCTOU prevention)
+- Independent structural validation (defense-in-depth)
+- Thread-safe metrics recording
+
+### Capability Registry & Policy Engine (BT-012, C-2)
+
+- freeze()/unseal() governance state locking with seal tokens
+- hmac.compare_digest for constant-time token comparison
+- Freeze check inside lock (TOCTOU prevention)
+- Registry capacity limit (10K capabilities)
+
+### Risk Engine (BT-014 through BT-023)
+
+- NFKC Unicode normalization for target sensitivity
+- URL decoding before pattern matching
+- Command prefix stripping (sudo, nohup, env, etc.)
+- Fail-closed defaults for unknown tiers/action types (9.0)
+- Target sensitivity shift detection (baseline poisoning defense)
+- Normalized fixation counting (dilution defense)
+- Severity trajectory detection (gradual escalation defense)
+- Explanation sanitization (40-char truncation, allowlist)
+- Immutable configuration (MappingProxyType, frozen tuples, read-only properties)
+
+### Tool Proxy (BT-006, BT-008, M-5 through M-7)
+
+- Recursion depth limit (max_call_depth=32, sync + async)
+- Thread-safe depth counter
+- Execution failure audit recording
+- O(1) bounded history via deque
+
+### Protocol & Audit (M-2, H-5, M-4, L-4, L-6)
+
+- from_json size limits (10MB) and error wrapping
+- Atomic batch_record with BEGIN/COMMIT/ROLLBACK
+- WAL checkpoint every 1000 writes
+- Bounded session history queries (default 1000)
+- AuditSystem.close() public method
+
+### Code Quality
+
+- Full PEP 8 compliance (ruff clean)
+- mypy strict: 0 errors
+- Registered pytest markers for ATM-1/ATX-1 traceability
+
+## Deferred to v0.2.0
+
+- Agent identity authentication (RFC-0002 transport layer)
+- Audit hash chaining / cryptographic integrity (RT-009)
+- Parameter semantic analysis (NLP/policy DSL)
+- Policy condition sandboxing
+- Persistent replay detection
+- Supply chain hardening (AV-6)
+
+---
+
 # [Unreleased]
 
 ## Planned for v0.2.0 (Q2 2026 — Stage 2)
