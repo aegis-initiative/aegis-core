@@ -255,9 +255,10 @@ class DecisionEngine:
 
             if not has_capability:
                 decision = Decision.DENIED
+                # BT-AUDIT-006: Sanitize — don't leak full target details
                 reason = (
-                    f"Agent '{request.agent_id}' lacks a capability covering "
-                    f"action '{action_type}' on target '{request.action.target}'."
+                    f"Agent lacks a capability covering "
+                    f"action '{action_type}' on the requested target."
                 )
                 policy_evaluations: list[dict[str, Any]] = []
                 # Telemetry: capability denial
