@@ -2,7 +2,18 @@
 
 Defines the custom exception hierarchy used throughout the AEGIS runtime.
 All runtime-specific failures should raise subclasses of :class:`AEGISError`.
+
+Each exception carries structured metadata (error code, cause, help URL) to
+support Stripe-style self-diagnosing error messages.  The :meth:`to_dict`
+method serializes all fields for JSON API responses.
 """
+
+from __future__ import annotations
+
+from typing import Any
+
+# Base URL for error documentation
+_DOCS_BASE_URL = "https://aegis-docs.com/errors"
 
 
 class AEGISError(Exception):
@@ -17,20 +28,64 @@ class AEGISError(Exception):
         Human-readable error message explaining what went wrong.
     error_code : str, optional
         Machine-readable error code for programmatic error handling.
+    cause : str, optional
+        The specific policy ID, capability, rule, or field that triggered
+        the error.
+    help_url : str, optional
+        Link to documentation for this error.  Auto-generated from
+        *error_code* when not provided.
 
     Attributes
     ----------
     error_code : str
         Machine-readable code uniquely identifying this error type.
+    cause : str or None
+        The specific entity that triggered the error.
+    help_url : str or None
+        Documentation URL for this error.
     """
 
     error_code: str = "AEGIS_ERROR"
 
-    def __init__(self, message: str, error_code: str | None = None) -> None:
+    def __init__(
+        self,
+        message: str,
+        error_code: str | None = None,
+        cause: str | None = None,
+        help_url: str | None = None,
+    ) -> None:
         super().__init__(message)
         self.message = message
         if error_code is not None:
             self.error_code = error_code
+        self.cause = cause
+        self.help_url = help_url if help_url is not None else self._build_help_url()
+
+    def _build_help_url(self) -> str:
+        """Generate a documentation URL from the error code."""
+        code = self.error_code.lower().replace("-", "_")
+        return f"{_DOCS_BASE_URL}/{code}"
+
+    def to_dict(self) -> dict[str, Any]:
+        """Return a structured dictionary suitable for JSON API responses.
+
+        Returns
+        -------
+        dict
+            Dictionary with keys: ``error_code``, ``message``, ``cause``,
+            ``help_url``, and ``type`` (the exception class name).
+        """
+        return {
+            "type": type(self).__name__,
+            "error_code": self.error_code,
+            "message": self.message,
+            "cause": self.cause,
+            "help_url": self.help_url,
+        }
+
+    def __str__(self) -> str:
+        """Format as ``[ERROR_CODE] message``."""
+        return f"[{self.error_code}] {self.message}"
 
 
 class AEGISValidationError(AEGISError):
@@ -50,7 +105,7 @@ class AEGISValidationError(AEGISError):
     >>> # Invalid action type for target
     >>> raise AEGISValidationError(
     ...     "FILE_WRITE not supported for URL targets",
-    ...     error_code="INVALID_ACTION_TYPE"
+    ...     error_code="AEGIS-VAL-010"
     ... )
     """
 
@@ -78,7 +133,7 @@ class AEGISCapabilityError(AEGISError):
     >>> # Agent not authorized
     >>> raise AEGISCapabilityError(
     ...     "Agent read-only-agent lacks capability 'database.write'",
-    ...     error_code="UNAUTHORIZED_CAPABILITY"
+    ...     error_code="AEGIS-CAP-002"
     ... )
     """
 
@@ -106,7 +161,7 @@ class AEGISPolicyError(AEGISError):
     >>> # Missing policy data
     >>> raise AEGISPolicyError(
     ...     "Could not load policy: database connection failed",
-    ...     error_code="POLICY_LOAD_ERROR"
+    ...     error_code="AEGIS-POL-003"
     ... )
     """
 
@@ -136,7 +191,7 @@ class AEGISAuditError(AEGISError):
     >>> # Storage quota exceeded
     >>> raise AEGISAuditError(
     ...     "Audit storage quota exceeded",
-    ...     error_code="AUDIT_STORAGE_FULL"
+    ...     error_code="AEGIS-AUD-002"
     ... )
     """
 

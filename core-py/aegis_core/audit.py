@@ -24,6 +24,7 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Any
 
+from . import errors
 from .exceptions import AEGISAuditError
 
 
@@ -211,7 +212,8 @@ class AuditSystem:
             except sqlite3.Error as exc:
                 raise AEGISAuditError(
                     f"Failed to persist audit record: {exc}",
-                    error_code="AUDIT_PERSIST_ERROR"
+                    error_code=errors.AUD_PERSIST_ERROR,
+                    cause="audit_records",
                 ) from exc
 
         return audit_id
@@ -287,7 +289,8 @@ class AuditSystem:
                     self._conn.execute("ROLLBACK")
                 raise AEGISAuditError(
                     f"Failed to persist batch audit records: {exc}",
-                    error_code="BATCH_PERSIST_ERROR"
+                    error_code=errors.AUD_BATCH_PERSIST_ERROR,
+                    cause="audit_records",
                 ) from exc
 
         return audit_ids

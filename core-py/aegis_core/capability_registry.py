@@ -29,6 +29,7 @@ from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from typing import Any
 
+from . import errors
 from .exceptions import AEGISCapabilityError
 
 
@@ -189,7 +190,8 @@ class CapabilityRegistry:
             ):
                 raise AEGISCapabilityError(
                     "Invalid seal token — cannot unseal registry",
-                    error_code="INVALID_SEAL_TOKEN",
+                    error_code=errors.CAP_INVALID_SEAL_TOKEN,
+                    cause="seal_token",
                 )
             self._frozen = False
             self._seal_token = None
@@ -203,9 +205,9 @@ class CapabilityRegistry:
         """Raise if frozen."""
         if self._frozen:
             raise AEGISCapabilityError(
-                "CapabilityRegistry is frozen. Call unseal() before "
-                "modifying governance state.",
-                error_code="REGISTRY_FROZEN",
+                "CapabilityRegistry is frozen — call unseal() with a valid "
+                "seal token before modifying governance state",
+                error_code=errors.CAP_REGISTRY_FROZEN,
             )
 
     # ------------------------------------------------------------------
@@ -232,8 +234,9 @@ class CapabilityRegistry:
             self._check_frozen()
             if len(self._capabilities) >= self._MAX_CAPABILITIES:
                 raise AEGISCapabilityError(
-                    f"Registry at capacity ({self._MAX_CAPABILITIES})",
-                    error_code="REGISTRY_CAPACITY",
+                    f"Capability registry has reached its maximum capacity "
+                    f"of {self._MAX_CAPABILITIES} capabilities",
+                    error_code=errors.CAP_REGISTRY_CAPACITY,
                 )
             if capability.id in self._capabilities:
                 raise ValueError(f"Capability '{capability.id}' is already registered.")
@@ -292,8 +295,10 @@ class CapabilityRegistry:
             self._check_frozen()
             if capability_id not in self._capabilities:
                 raise AEGISCapabilityError(
-                    f"Cannot grant unknown capability '{capability_id}'.",
-                    error_code="UNKNOWN_CAPABILITY"
+                    f"Cannot grant unknown capability '{capability_id}' — "
+                    f"register it first with CapabilityRegistry.register()",
+                    error_code=errors.CAP_UNKNOWN_CAPABILITY,
+                    cause=capability_id,
                 )
             self._agent_capabilities.setdefault(agent_id, set()).add(capability_id)
 
@@ -328,8 +333,10 @@ class CapabilityRegistry:
             self._check_frozen()
             if capability_id not in self._capabilities:
                 raise AEGISCapabilityError(
-                    f"Cannot grant unknown capability '{capability_id}'.",
-                    error_code="UNKNOWN_CAPABILITY"
+                    f"Cannot grant unknown capability '{capability_id}' — "
+                    f"register it first with CapabilityRegistry.register()",
+                    error_code=errors.CAP_UNKNOWN_CAPABILITY,
+                    cause=capability_id,
                 )
             count = 0
             for agent_id in agent_ids:

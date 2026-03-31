@@ -30,6 +30,7 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from enum import StrEnum
 
+from . import errors
 from .exceptions import AEGISPolicyError
 from .protocol import AGPRequest, Decision
 
@@ -197,8 +198,9 @@ class PolicyEngine:
                 token.encode(), self._seal_token.encode()
             ):
                 raise AEGISPolicyError(
-                    "Invalid seal token - cannot unseal policy engine",
-                    error_code="INVALID_SEAL_TOKEN",
+                    "Invalid seal token — cannot unseal policy engine",
+                    error_code=errors.POL_INVALID_SEAL_TOKEN,
+                    cause="seal_token",
                 )
             self._frozen = False
             self._seal_token = None
@@ -212,9 +214,9 @@ class PolicyEngine:
         """Raise if frozen."""
         if self._frozen:
             raise AEGISPolicyError(
-                "PolicyEngine is frozen. Call unseal() before "
-                "modifying governance state.",
-                error_code="ENGINE_FROZEN",
+                "PolicyEngine is frozen — call unseal() with a valid "
+                "seal token before modifying governance state",
+                error_code=errors.POL_ENGINE_FROZEN,
             )
 
     # ------------------------------------------------------------------
@@ -313,14 +315,16 @@ class PolicyEngine:
         """
         if not policy.id or not policy.id.strip():
             raise AEGISPolicyError(
-                "Policy.id must not be empty",
-                error_code="EMPTY_POLICY_ID"
+                "Policy.id is required but was empty or whitespace-only",
+                error_code=errors.POL_EMPTY_POLICY_ID,
+                cause="policy.id",
             )
 
         if not policy.name or not policy.name.strip():
             raise AEGISPolicyError(
-                "Policy.name must not be empty",
-                error_code="EMPTY_POLICY_NAME"
+                "Policy.name is required but was empty or whitespace-only",
+                error_code=errors.POL_EMPTY_POLICY_NAME,
+                cause="policy.name",
             )
 
         valid_effects = (
@@ -330,26 +334,30 @@ class PolicyEngine:
         if policy.effect not in valid_effects:
             raise AEGISPolicyError(
                 f"Policy.effect must be ALLOW, DENY, ESCALATE, or "
-                f"REQUIRE_CONFIRMATION, got {policy.effect}",
-                error_code="INVALID_POLICY_EFFECT"
+                f"REQUIRE_CONFIRMATION, got {policy.effect!r}",
+                error_code=errors.POL_INVALID_EFFECT,
+                cause="policy.effect",
             )
 
         if not isinstance(policy.conditions, list):
             raise AEGISPolicyError(
                 f"Policy.conditions must be a list, got {type(policy.conditions).__name__}",
-                error_code="INVALID_CONDITIONS_TYPE"
+                error_code=errors.POL_INVALID_CONDITIONS_TYPE,
+                cause="policy.conditions",
             )
 
         for i, condition in enumerate(policy.conditions):
             if not callable(condition.evaluate):
                 raise AEGISPolicyError(
-                    f"Policy condition {i}: evaluate is not callable",
-                    error_code="NONCALLABLE_CONDITION"
+                    f"Policy condition [{i}]: evaluate attribute is not callable",
+                    error_code=errors.POL_NONCALLABLE_CONDITION,
+                    cause=f"policy.conditions[{i}].evaluate",
                 )
             if not condition.description or not condition.description.strip():
                 raise AEGISPolicyError(
-                    f"Policy condition {i}: description must not be empty",
-                    error_code="EMPTY_CONDITION_DESCRIPTION"
+                    f"Policy condition [{i}]: description is required but was empty",
+                    error_code=errors.POL_EMPTY_CONDITION_DESC,
+                    cause=f"policy.conditions[{i}].description",
                 )
 
     def find_policies_by_effect(self, effect: PolicyEffect) -> list[Policy]:
@@ -401,7 +409,9 @@ class PolicyEngine:
                     # created an inconsistency with evaluate() and allowed
                     # detection evasion. Now raises consistently.
                     raise AEGISPolicyError(
-                        f"Policy '{policy.id}' condition raised an error: {exc}"
+                        f"Policy '{policy.id}' condition raised an error: {exc}",
+                        error_code=errors.POL_CONDITION_ERROR,
+                        cause=policy.id,
                     ) from exc
         return sorted(matching, key=lambda p: p.priority)
 
@@ -457,7 +467,9 @@ class PolicyEngine:
                 matched = all(cond.evaluate(request) for cond in policy.conditions)
             except Exception as exc:
                 raise AEGISPolicyError(
-                    f"Policy '{policy.id}' condition raised an error: {exc}"
+                    f"Policy '{policy.id}' condition raised an error: {exc}",
+                    error_code=errors.POL_CONDITION_ERROR,
+                    cause=policy.id,
                 ) from exc
 
             evaluations.append(

@@ -30,6 +30,7 @@ import time
 from dataclasses import dataclass
 from typing import Any
 
+from . import errors
 from .audit import AuditSystem
 from .capability_registry import CapabilityRegistry
 from .exceptions import AEGISValidationError
@@ -149,50 +150,58 @@ class DecisionEngine:
         """
         if request is None:
             raise AEGISValidationError(
-                "Engine received None request",
-                error_code="ENGINE_NULL_REQUEST",
+                "Engine received None request (defense-in-depth check failed)",
+                error_code=errors.VAL_ENGINE_NULL_REQUEST,
+                cause="request",
             )
 
         if not hasattr(request, "agent_id") or not request.agent_id:
             raise AEGISValidationError(
                 "Engine received request without agent_id",
-                error_code="ENGINE_MISSING_AGENT_ID",
+                error_code=errors.VAL_ENGINE_MISSING_AGENT_ID,
+                cause="request.agent_id",
             )
 
         if not hasattr(request, "request_id") or not request.request_id:
             raise AEGISValidationError(
                 "Engine received request without request_id",
-                error_code="ENGINE_MISSING_REQUEST_ID",
+                error_code=errors.VAL_ENGINE_MISSING_REQUEST_ID,
+                cause="request.request_id",
             )
 
         if request.action is None:
             raise AEGISValidationError(
                 "Engine received request with None action",
-                error_code="ENGINE_NULL_ACTION",
+                error_code=errors.VAL_ENGINE_NULL_ACTION,
+                cause="request.action",
             )
 
         if not isinstance(request.action.type, ActionType):
             raise AEGISValidationError(
                 f"Engine received invalid action type: {request.action.type!r}",
-                error_code="ENGINE_INVALID_ACTION_TYPE",
+                error_code=errors.VAL_ENGINE_INVALID_ACTION_TYPE,
+                cause="request.action.type",
             )
 
         if not request.action.target:
             raise AEGISValidationError(
                 "Engine received request with empty action target",
-                error_code="ENGINE_EMPTY_TARGET",
+                error_code=errors.VAL_ENGINE_EMPTY_TARGET,
+                cause="request.action.target",
             )
 
         if request.context is None:
             raise AEGISValidationError(
                 "Engine received request with None context",
-                error_code="ENGINE_NULL_CONTEXT",
+                error_code=errors.VAL_ENGINE_NULL_CONTEXT,
+                cause="request.context",
             )
 
         if not request.context.session_id:
             raise AEGISValidationError(
                 "Engine received request with empty session_id",
-                error_code="ENGINE_EMPTY_SESSION_ID",
+                error_code=errors.VAL_ENGINE_EMPTY_SESSION_ID,
+                cause="request.context.session_id",
             )
 
     # ------------------------------------------------------------------
