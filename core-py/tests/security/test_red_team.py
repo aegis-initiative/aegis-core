@@ -86,7 +86,7 @@ class TestProtocolAttacks:
         )
 
         # BLUE TEAM FIX VALIDATED: Oversized parameters now rejected
-        with pytest.raises(AEGISValidationError, match="exceeds maximum size"):
+        with pytest.raises(AEGISValidationError, match="exceeds maximum serialized size"):
             configured_runtime.gateway.submit(request)
 
     @pytest.mark.atm1(attack_vector="AV-1")

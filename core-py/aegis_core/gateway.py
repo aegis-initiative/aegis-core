@@ -39,6 +39,7 @@ import json
 import re
 import threading
 
+from . import errors
 from .decision_engine import DecisionEngine
 from .exceptions import AEGISValidationError
 from .protocol import ActionType, AGPAction, AGPContext, AGPRequest, AGPResponse
@@ -140,7 +141,8 @@ class GovernanceGateway:
             if request_id in self._seen_request_ids:
                 raise AEGISValidationError(
                     f"Duplicate request_id rejected (replay protection): {request_id}",
-                    error_code="DUPLICATE_REQUEST_ID"
+                    error_code=errors.VAL_DUPLICATE_REQUEST_ID,
+                    cause="request.request_id",
                 )
             self._seen_request_ids.append(request_id)
 
@@ -171,7 +173,8 @@ class GovernanceGateway:
             raise AEGISValidationError(
                 f"SHELL_EXEC target contains shell metacharacters that "
                 f"could cause parser divergence: {action.target!r}",
-                error_code="SHELL_METACHARACTER_DETECTED"
+                error_code=errors.VAL_SHELL_METACHARACTER,
+                cause="request.action.target",
             )
 
         # RT-022 / T10002 + RT-023 / T10003: Sensitive path protection
@@ -194,7 +197,8 @@ class GovernanceGateway:
                             f"FILE_WRITE to sensitive path requires "
                             f"escalation: {raw_target!r} matches "
                             f"protected pattern '{pattern}'",
-                            error_code="SENSITIVE_PATH_WRITE"
+                            error_code=errors.VAL_SENSITIVE_PATH_WRITE,
+                            cause="request.action.target",
                         )
 
     # ------------------------------------------------------------------
@@ -220,24 +224,40 @@ class GovernanceGateway:
         """
         # Request object must exist
         if request is None:
-            raise AEGISValidationError("AGPRequest object must not be None")
+            raise AEGISValidationError(
+                "AGPRequest object must not be None",
+                error_code=errors.VAL_NULL_REQUEST,
+                cause="request",
+            )
 
         # Validate agent_id
         self._validate_agent_id(request.agent_id)
 
         # Validate action
         if request.action is None:
-            raise AEGISValidationError("AGPRequest.action must not be None")
+            raise AEGISValidationError(
+                "AGPRequest.action must not be None",
+                error_code=errors.VAL_NULL_ACTION,
+                cause="request.action",
+            )
         self._validate_action(request.action)
 
         # Validate context
         if request.context is None:
-            raise AEGISValidationError("AGPRequest.context must not be None")
+            raise AEGISValidationError(
+                "AGPRequest.context must not be None",
+                error_code=errors.VAL_NULL_CONTEXT,
+                cause="request.context",
+            )
         self._validate_context(request.context)
 
         # Validate request_id
         if not request.request_id or not request.request_id.strip():
-            raise AEGISValidationError("AGPRequest.request_id must not be empty")
+            raise AEGISValidationError(
+                "AGPRequest.request_id must not be empty",
+                error_code=errors.VAL_EMPTY_REQUEST_ID,
+                cause="request.request_id",
+            )
 
     def _validate_agent_id(self, agent_id: str) -> None:
         """Validate agent ID format and content.
@@ -259,20 +279,24 @@ class GovernanceGateway:
         """
         if not agent_id or not agent_id.strip():
             raise AEGISValidationError(
-                "AGPRequest.agent_id must not be empty",
-                error_code="EMPTY_AGENT_ID"
+                "agent_id is required but was empty or whitespace-only",
+                error_code=errors.VAL_EMPTY_AGENT_ID,
+                cause="request.agent_id",
             )
 
         if len(agent_id) > 256:
             raise AEGISValidationError(
-                f"AGPRequest.agent_id exceeds maximum length (256): {len(agent_id)}",
-                error_code="AGENT_ID_TOO_LONG"
+                f"agent_id exceeds maximum length of 256 characters (got {len(agent_id)})",
+                error_code=errors.VAL_AGENT_ID_TOO_LONG,
+                cause="request.agent_id",
             )
 
         if not _AGENT_ID_PATTERN.match(agent_id):
             raise AEGISValidationError(
-                f"AGPRequest.agent_id contains invalid characters: {agent_id!r}",
-                error_code="INVALID_AGENT_ID_FORMAT"
+                f"agent_id contains invalid characters: {agent_id!r} "
+                f"(only alphanumeric, hyphens, underscores, and dots are allowed)",
+                error_code=errors.VAL_INVALID_AGENT_ID_FORMAT,
+                cause="request.agent_id",
             )
 
     def _validate_action(self, action: AGPAction) -> None:
@@ -290,48 +314,54 @@ class GovernanceGateway:
         """
         if action.type is None:
             raise AEGISValidationError(
-                "AGPRequest.action.type must not be None",
-                error_code="MISSING_ACTION_TYPE"
+                "action.type is required but was None",
+                error_code=errors.VAL_MISSING_ACTION_TYPE,
+                cause="request.action.type",
             )
 
         if not isinstance(action.type, ActionType):
             raise AEGISValidationError(
-                f"AGPRequest.action.type is not a valid ActionType: {action.type!r}",
-                error_code="INVALID_ACTION_TYPE"
+                f"action.type must be a valid ActionType enum member, got {action.type!r}",
+                error_code=errors.VAL_INVALID_ACTION_TYPE,
+                cause="request.action.type",
             )
 
         if not action.target or not action.target.strip():
             raise AEGISValidationError(
-                "AGPRequest.action.target must not be empty",
-                error_code="EMPTY_ACTION_TARGET"
+                "action.target is required but was empty or whitespace-only",
+                error_code=errors.VAL_EMPTY_ACTION_TARGET,
+                cause="request.action.target",
             )
 
         if len(action.target) > 1024:
             raise AEGISValidationError(
-                f"AGPRequest.action.target exceeds maximum length (1024): {len(action.target)}",
-                error_code="TARGET_TOO_LONG"
+                f"action.target exceeds maximum length of 1024 characters (got {len(action.target)})",
+                error_code=errors.VAL_TARGET_TOO_LONG,
+                cause="request.action.target",
             )
 
         # Validate parameters dict
         if action.parameters is None:
             raise AEGISValidationError(
-                "AGPRequest.action.parameters must not be None",
-                error_code="MISSING_PARAMETERS"
+                "action.parameters is required but was None",
+                error_code=errors.VAL_NULL_PARAMETERS,
+                cause="request.action.parameters",
             )
 
         if not isinstance(action.parameters, dict):
             raise AEGISValidationError(
-                "AGPRequest.action.parameters must be a dict, "
-                f"got {type(action.parameters).__name__}",
-                error_code="INVALID_PARAMETERS_TYPE"
+                f"action.parameters must be a dict, got {type(action.parameters).__name__}",
+                error_code=errors.VAL_INVALID_PARAMETERS_TYPE,
+                cause="request.action.parameters",
             )
 
         # Check for None keys in parameters
         for key in action.parameters:
             if key is None:
                 raise AEGISValidationError(
-                    "AGPRequest.action.parameters contains None key",
-                    error_code="NULL_PARAMETER_KEY"
+                    "action.parameters contains a None key which is not valid JSON",
+                    error_code=errors.VAL_NULL_PARAMETER_KEY,
+                    cause="request.action.parameters",
                 )
 
         # RT-008 / T6002: Enforce parameter size limit to prevent
@@ -341,14 +371,16 @@ class GovernanceGateway:
             params_size = len(json.dumps(action.parameters))
         except (TypeError, ValueError) as exc:
             raise AEGISValidationError(
-                f"AGPRequest.action.parameters cannot be serialized: {exc}",
-                error_code="PARAMETERS_UNSERIALIZABLE"
+                f"action.parameters cannot be JSON-serialized: {exc}",
+                error_code=errors.VAL_PARAMETERS_UNSERIALIZABLE,
+                cause="request.action.parameters",
             ) from exc
         if params_size > _MAX_PARAMETERS_SIZE_BYTES:
             raise AEGISValidationError(
-                f"AGPRequest.action.parameters exceeds maximum size "
-                f"({_MAX_PARAMETERS_SIZE_BYTES} bytes): {params_size}",
-                error_code="PARAMETERS_TOO_LARGE"
+                f"action.parameters exceeds maximum serialized size "
+                f"({_MAX_PARAMETERS_SIZE_BYTES} bytes): got {params_size} bytes",
+                error_code=errors.VAL_PARAMETERS_TOO_LARGE,
+                cause="request.action.parameters",
             )
 
     def _validate_context(self, context: AGPContext) -> None:
@@ -366,26 +398,29 @@ class GovernanceGateway:
         """
         if not context.session_id or not context.session_id.strip():
             raise AEGISValidationError(
-                "AGPRequest.context.session_id must not be empty",
-                error_code="EMPTY_SESSION_ID"
+                "context.session_id is required but was empty or whitespace-only",
+                error_code=errors.VAL_EMPTY_SESSION_ID,
+                cause="request.context.session_id",
             )
 
         if len(context.session_id) > 256:
             raise AEGISValidationError(
-                "AGPRequest.context.session_id exceeds maximum "
-                f"length (256): {len(context.session_id)}",
-                error_code="SESSION_ID_TOO_LONG"
+                f"context.session_id exceeds maximum length of 256 characters "
+                f"(got {len(context.session_id)})",
+                error_code=errors.VAL_SESSION_ID_TOO_LONG,
+                cause="request.context.session_id",
             )
 
         if context.timestamp is None:
             raise AEGISValidationError(
-                "AGPRequest.context.timestamp must not be None",
-                error_code="MISSING_TIMESTAMP"
+                "context.timestamp is required but was None",
+                error_code=errors.VAL_MISSING_TIMESTAMP,
+                cause="request.context.timestamp",
             )
 
         if context.metadata is None:
             raise AEGISValidationError(
-                "AGPRequest.context.metadata must not be None",
-                error_code="MISSING_METADATA"
+                "context.metadata is required but was None",
+                error_code=errors.VAL_MISSING_METADATA,
+                cause="request.context.metadata",
             )
-

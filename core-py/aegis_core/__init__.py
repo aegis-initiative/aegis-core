@@ -23,6 +23,7 @@ Use :class:`AEGISRuntime` for the simplest integration::
     proxy.call("my_tool", arg="value")
 """
 
+from . import errors
 from .audit import AuditRecord, AuditSystem
 from .capability_registry import Capability, CapabilityRegistry
 from .decision_engine import DecisionEngine
@@ -58,6 +59,8 @@ __all__ = [
     "AEGISCapabilityError",
     # Exceptions
     "AEGISError",
+    # Error catalog
+    "errors",
     "AEGISPolicyError",
     # Runtime facade
     "AEGISRuntime",

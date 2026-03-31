@@ -206,7 +206,7 @@ class TestValidatePolicy:
         engine.validate_policy(policy)  # Should not raise
 
     def test_empty_policy_id_raises(self, engine):
-        with pytest.raises(AEGISPolicyError, match="id must not be empty"):
+        with pytest.raises(AEGISPolicyError, match="id is required but was empty"):
             engine.validate_policy(Policy(
                 id="",
                 name="Test",
@@ -216,7 +216,7 @@ class TestValidatePolicy:
             ))
 
     def test_empty_policy_name_raises(self, engine):
-        with pytest.raises(AEGISPolicyError, match="name must not be empty"):
+        with pytest.raises(AEGISPolicyError, match="name is required but was empty"):
             engine.validate_policy(Policy(
                 id="pol-1",
                 name="",
@@ -242,7 +242,7 @@ class TestValidatePolicy:
             ))
 
     def test_empty_condition_description_raises(self, engine):
-        with pytest.raises(AEGISPolicyError, match="description must not be empty"):
+        with pytest.raises(AEGISPolicyError, match="description is required but was empty"):
             engine.validate_policy(Policy(
                 id="pol-1",
                 name="Test",
