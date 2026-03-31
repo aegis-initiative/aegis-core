@@ -64,9 +64,7 @@ class Capability:
     description: str
     action_types: list[str]
     target_patterns: list[str]
-    granted_at: datetime = field(
-        default_factory=lambda: datetime.now(UTC)
-    )
+    granted_at: datetime = field(default_factory=lambda: datetime.now(UTC))
     expires_at: datetime | None = None
     metadata: dict[str, Any] = field(default_factory=dict)
 
@@ -434,9 +432,7 @@ class CapabilityRegistry:
                 if cid in self._capabilities and self._capabilities[cid].is_active(now)
             ]
 
-    def has_capability_for_action(
-        self, agent_id: str, action_type: str, target: str
-    ) -> bool:
+    def has_capability_for_action(self, agent_id: str, action_type: str, target: str) -> bool:
         """Return ``True`` if *agent_id* holds a capability covering *action_type*
         on *target*.
 
@@ -454,7 +450,4 @@ class CapabilityRegistry:
         bool
             True if the agent has a matching active capability.
         """
-        return any(
-            cap.covers(action_type, target)
-            for cap in self.get_agent_capabilities(agent_id)
-        )
+        return any(cap.covers(action_type, target) for cap in self.get_agent_capabilities(agent_id))

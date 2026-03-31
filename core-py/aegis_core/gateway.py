@@ -45,7 +45,7 @@ from .exceptions import AEGISValidationError
 from .protocol import ActionType, AGPAction, AGPContext, AGPRequest, AGPResponse
 
 # Regex for valid agent IDs: alphanumeric, hyphens, underscores, dots
-_AGENT_ID_PATTERN = re.compile(r'^[a-zA-Z0-9._-]+$')
+_AGENT_ID_PATTERN = re.compile(r"^[a-zA-Z0-9._-]+$")
 
 # RT-008 / T6002: Maximum serialized size for action parameters (1 MB)
 _MAX_PARAMETERS_SIZE_BYTES = 1_048_576
@@ -56,7 +56,7 @@ _MAX_PARAMETERS_SIZE_BYTES = 1_048_576
 # parse the metacharacters as command separators or operators.
 # BT-AUDIT-001: Added > and < (shell redirections) — "echo payload > /etc/passwd"
 # bypasses FILE_WRITE detection because action_type is SHELL_EXEC.
-_SHELL_METACHAR_PATTERN = re.compile(r'[;|&`$()<>]|\n|\r')
+_SHELL_METACHAR_PATTERN = re.compile(r"[;|&`$()<>]|\n|\r")
 
 # RT-022 / T10002 + RT-023 / T10003: Sensitive paths that require
 # escalation for FILE_WRITE actions. These are files that the execution
@@ -66,17 +66,29 @@ _SENSITIVE_PATH_PATTERNS: tuple[str, ...] = (
     # Git hooks (T10002)
     ".git/hooks/*",
     # Shell init (T10002)
-    ".bashrc", ".bash_profile", ".profile", ".zshrc", ".zprofile",
+    ".bashrc",
+    ".bash_profile",
+    ".profile",
+    ".zshrc",
+    ".zprofile",
     # Package manager lifecycle scripts (T10002)
-    "package.json", "Makefile", "setup.py", "setup.cfg",
+    "package.json",
+    "Makefile",
+    "setup.py",
+    "setup.cfg",
     # CI/CD (T10002)
-    ".github/workflows/*", ".gitlab-ci.yml", "Jenkinsfile",
+    ".github/workflows/*",
+    ".gitlab-ci.yml",
+    "Jenkinsfile",
     # Container (T10002)
-    "Dockerfile", "docker-compose.yml", "docker-compose.yaml",
+    "Dockerfile",
+    "docker-compose.yml",
+    "docker-compose.yaml",
     # IDE tasks (T10002)
     ".vscode/tasks.json",
     # Agent instruction files (T10003)
-    "CLAUDE.md", ".claude/*",
+    "CLAUDE.md",
+    ".claude/*",
     ".cursorrules",
     ".github/copilot-instructions.md",
     ".windsurfrules",
@@ -166,10 +178,7 @@ class GovernanceGateway:
         action = request.action
 
         # RT-021 / T10004: Shell metacharacter detection for SHELL_EXEC
-        if (
-            action.type == ActionType.SHELL_EXEC
-            and _SHELL_METACHAR_PATTERN.search(action.target)
-        ):
+        if action.type == ActionType.SHELL_EXEC and _SHELL_METACHAR_PATTERN.search(action.target):
             raise AEGISValidationError(
                 f"SHELL_EXEC target contains shell metacharacters that "
                 f"could cause parser divergence: {action.target!r}",
@@ -186,8 +195,14 @@ class GovernanceGateway:
             normalized = posixpath.normpath(raw_target)
             basename = normalized.rsplit("/", 1)[-1]
             # Check all variants: raw, normalized, basename
-            variants = {raw_target, normalized, raw_target.lower(),
-                        normalized.lower(), basename, basename.lower()}
+            variants = {
+                raw_target,
+                normalized,
+                raw_target.lower(),
+                normalized.lower(),
+                basename,
+                basename.lower(),
+            }
             for pattern in _SENSITIVE_PATH_PATTERNS:
                 for variant in variants:
                     if fnmatch.fnmatch(variant, pattern) or fnmatch.fnmatch(
@@ -335,7 +350,8 @@ class GovernanceGateway:
 
         if len(action.target) > 1024:
             raise AEGISValidationError(
-                f"action.target exceeds maximum length of 1024 characters (got {len(action.target)})",
+                "action.target exceeds maximum length of 1024 characters"
+                f" (got {len(action.target)})",
                 error_code=errors.VAL_TARGET_TOO_LONG,
                 cause="request.action.target",
             )

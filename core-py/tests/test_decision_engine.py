@@ -7,13 +7,13 @@ import pytest
 from aegis_core.audit import AuditSystem
 from aegis_core.capability_registry import Capability, CapabilityRegistry
 from aegis_core.decision_engine import DecisionEngine
-from aegis_core.policy_engine import Policy, PolicyCondition, PolicyEffect, PolicyEngine
-from aegis_core.protocol import AGPAction, AGPContext, AGPRequest, ActionType, Decision
-
+from aegis_core.policy_engine import Policy, PolicyEffect, PolicyEngine
+from aegis_core.protocol import ActionType, AGPAction, AGPContext, AGPRequest, Decision
 
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------
+
 
 @pytest.fixture()
 def audit():
@@ -51,8 +51,9 @@ def make_request(
     )
 
 
-def setup_allow(registry: CapabilityRegistry, policies: PolicyEngine,
-                agent_id: str = "agent-1") -> None:
+def setup_allow(
+    registry: CapabilityRegistry, policies: PolicyEngine, agent_id: str = "agent-1"
+) -> None:
     """Grant capability and add a permissive allow policy."""
     cap = Capability(
         id="cap-1",
@@ -66,23 +67,26 @@ def setup_allow(registry: CapabilityRegistry, policies: PolicyEngine,
         registry.register(cap)
     except ValueError:
         pass  # Already registered
-    
+
     registry.grant(agent_id, "cap-1")
-    
+
     # Only add policy if not already there
     if "pol-allow" not in [p.id for p in policies.list_policies()]:
-        policies.add_policy(Policy(
-            id="pol-allow",
-            name="Allow all",
-            description="",
-            effect=PolicyEffect.ALLOW,
-            conditions=[],
-        ))
+        policies.add_policy(
+            Policy(
+                id="pol-allow",
+                name="Allow all",
+                description="",
+                effect=PolicyEffect.ALLOW,
+                conditions=[],
+            )
+        )
 
 
 # ---------------------------------------------------------------------------
 # Tests
 # ---------------------------------------------------------------------------
+
 
 class TestCapabilityGate:
     def test_no_capability_denies(self, engine):
@@ -115,14 +119,16 @@ class TestPolicyGate:
     def test_deny_policy_overrides_capability(self, engine, registry, policies):
         setup_allow(registry, policies)
         # Add a higher-priority deny policy
-        policies.add_policy(Policy(
-            id="pol-deny",
-            name="Emergency deny",
-            description="",
-            effect=PolicyEffect.DENY,
-            conditions=[],
-            priority=0,
-        ))
+        policies.add_policy(
+            Policy(
+                id="pol-deny",
+                name="Emergency deny",
+                description="",
+                effect=PolicyEffect.DENY,
+                conditions=[],
+                priority=0,
+            )
+        )
         response = engine._evaluate(make_request())
         assert response.decision == Decision.DENIED
 
@@ -184,10 +190,10 @@ class TestDecisionMetrics:
         """Metrics correctly count approved decisions."""
         setup_allow(registry, policies, agent_id="a1")
         setup_allow(registry, policies, agent_id="a2")
-        
+
         engine._evaluate(make_request(agent_id="a1"))
         engine._evaluate(make_request(agent_id="a2"))
-        
+
         metrics = engine.get_metrics()
         assert metrics.total_decisions == 2
         assert metrics.approved_count == 2
@@ -198,7 +204,7 @@ class TestDecisionMetrics:
         """Metrics correctly count denied decisions."""
         engine._evaluate(make_request(agent_id="a1"))
         engine._evaluate(make_request(agent_id="a2"))
-        
+
         metrics = engine.get_metrics()
         assert metrics.total_decisions == 2
         assert metrics.denied_count == 2
@@ -208,7 +214,7 @@ class TestDecisionMetrics:
         """Metrics distinguish capability-stage denials."""
         # No capability registered → capability denial
         engine._evaluate(make_request())
-        
+
         metrics = engine.get_metrics()
         assert metrics.capability_denials >= 1
         assert metrics.denied_count >= 1
@@ -225,17 +231,19 @@ class TestDecisionMetrics:
         )
         registry.register(cap)
         registry.grant("agent-1", "cap-1")
-        
-        policies.add_policy(Policy(
-            id="pol-deny",
-            name="Deny all",
-            description="",
-            effect=PolicyEffect.DENY,
-            conditions=[],
-        ))
-        
+
+        policies.add_policy(
+            Policy(
+                id="pol-deny",
+                name="Deny all",
+                description="",
+                effect=PolicyEffect.DENY,
+                conditions=[],
+            )
+        )
+
         engine._evaluate(make_request())
-        
+
         metrics = engine.get_metrics()
         assert metrics.policy_denials >= 1
         assert metrics.denied_count >= 1
@@ -243,10 +251,10 @@ class TestDecisionMetrics:
     def test_metrics_latency_recorded(self, engine, registry, policies):
         """Metrics record latency for decisions."""
         setup_allow(registry, policies)
-        
+
         engine._evaluate(make_request())
         engine._evaluate(make_request())
-        
+
         metrics = engine.get_metrics()
         assert metrics.total_latency_ms > 0
         assert metrics.avg_latency_ms > 0
@@ -255,10 +263,10 @@ class TestDecisionMetrics:
     def test_metrics_average_calculation(self, engine, registry, policies):
         """Average latency is correctly calculated."""
         setup_allow(registry, policies)
-        
+
         for _ in range(5):
             engine._evaluate(make_request())
-        
+
         metrics = engine.get_metrics()
         assert metrics.total_decisions == 5
         # Average should be total divided by count
@@ -268,15 +276,15 @@ class TestDecisionMetrics:
     def test_reset_metrics(self, engine, registry, policies):
         """Metrics can be reset to zero."""
         setup_allow(registry, policies)
-        
+
         engine._evaluate(make_request())
         engine._evaluate(make_request())
-        
+
         metrics = engine.get_metrics()
         assert metrics.total_decisions == 2
-        
+
         engine.reset_metrics()
-        
+
         metrics = engine.get_metrics()
         assert metrics.total_decisions == 0
         assert metrics.approved_count == 0
@@ -287,21 +295,21 @@ class TestDecisionMetrics:
         # Grant capability and policy to multiple agents
         for i in range(3):
             setup_allow(registry, policies, agent_id=f"agent-{i}")
-        
+
         # Make some approved decisions
         for i in range(3):
             engine._evaluate(make_request(agent_id=f"agent-{i}"))
-        
+
         metrics_after_3 = engine.get_metrics()
         assert metrics_after_3.total_decisions == 3
         assert metrics_after_3.approved_count == 3
         assert metrics_after_3.denied_count == 0
-        
+
         # Make some denied decisions
         engine.reset_metrics()
         for i in range(2):
             engine._evaluate(make_request(agent_id=f"unknown-{i}"))
-        
+
         metrics_after_denials = engine.get_metrics()
         assert metrics_after_denials.total_decisions == 2
         assert metrics_after_denials.denied_count == 2
@@ -325,10 +333,7 @@ class TestConcurrency:
                 with lock:
                     errors.append(exc)
 
-        threads = [
-            threading.Thread(target=evaluate_agent, args=(f"agent-{i}",))
-            for i in range(10)
-        ]
+        threads = [threading.Thread(target=evaluate_agent, args=(f"agent-{i}",)) for i in range(10)]
         for t in threads:
             t.start()
         for t in threads:

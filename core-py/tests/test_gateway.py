@@ -2,8 +2,9 @@
 
 import threading
 import time
-import pytest
 from unittest.mock import Mock
+
+import pytest
 
 from aegis_core import AEGISRuntime
 from aegis_core.capability_registry import Capability
@@ -11,11 +12,11 @@ from aegis_core.exceptions import AEGISValidationError
 from aegis_core.gateway import GovernanceGateway
 from aegis_core.policy_engine import Policy, PolicyEffect
 from aegis_core.protocol import (
+    ActionType,
     AGPAction,
     AGPContext,
     AGPRequest,
     AGPResponse,
-    ActionType,
     Decision,
 )
 
@@ -32,13 +33,15 @@ def runtime() -> AEGISRuntime:
     )
     rt.capabilities.register(cap)
     rt.capabilities.grant("agent-1", "cap-1")
-    rt.policies.add_policy(Policy(
-        id="pol-allow",
-        name="Allow all",
-        description="",
-        effect=PolicyEffect.ALLOW,
-        conditions=[],
-    ))
+    rt.policies.add_policy(
+        Policy(
+            id="pol-allow",
+            name="Allow all",
+            description="",
+            effect=PolicyEffect.ALLOW,
+            conditions=[],
+        )
+    )
     return rt
 
 
@@ -80,11 +83,11 @@ class TestValidation:
 
     def test_agent_id_with_invalid_chars_raises(self, runtime):
         invalid_ids = [
-            "agent@1",      # @ not allowed
-            "agent 1",      # space not allowed
-            "agent!1",      # ! not allowed
-            "agent$1",      # $ not allowed
-            "agent/1",      # / not allowed
+            "agent@1",  # @ not allowed
+            "agent 1",  # space not allowed
+            "agent!1",  # ! not allowed
+            "agent$1",  # $ not allowed
+            "agent/1",  # / not allowed
         ]
         for invalid_id in invalid_ids:
             req = make_request(agent_id=invalid_id)
@@ -93,9 +96,9 @@ class TestValidation:
 
     def test_agent_id_with_valid_special_chars_passes(self, runtime):
         valid_ids = [
-            "agent-1",      # hyphen allowed
-            "agent_1",      # underscore allowed
-            "agent.1",      # dot allowed
+            "agent-1",  # hyphen allowed
+            "agent_1",  # underscore allowed
+            "agent.1",  # dot allowed
             "agent-1_2.3",  # all allowed mixed
         ]
         for valid_id in valid_ids:
@@ -156,11 +159,7 @@ class TestValidation:
             runtime.gateway.submit(req)
 
     def test_none_parameters_raises(self, runtime):
-        action = AGPAction(
-            type=ActionType.TOOL_CALL,
-            target="my_tool",
-            parameters=None
-        )
+        action = AGPAction(type=ActionType.TOOL_CALL, target="my_tool", parameters=None)
         req = make_request(action=action)
         with pytest.raises(AEGISValidationError, match="parameters.*None"):
             runtime.gateway.submit(req)
@@ -169,7 +168,7 @@ class TestValidation:
         action = AGPAction(
             type=ActionType.TOOL_CALL,
             target="my_tool",
-            parameters="not-a-dict"  # Should be dict
+            parameters="not-a-dict",  # Should be dict
         )
         req = make_request(action=action)
         with pytest.raises(AEGISValidationError, match="parameters.*dict"):
@@ -179,7 +178,7 @@ class TestValidation:
         action = AGPAction(
             type=ActionType.TOOL_CALL,
             target="my_tool",
-            parameters={None: "value"}  # None key invalid
+            parameters={None: "value"},  # None key invalid
         )
         req = make_request(action=action)
         with pytest.raises(AEGISValidationError, match="None key"):

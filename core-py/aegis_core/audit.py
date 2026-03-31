@@ -313,9 +313,7 @@ class AuditSystem:
             The audit record if found, None otherwise.
         """
         with self._lock:
-            cursor = self._conn.execute(
-                "SELECT * FROM audit_records WHERE id = ?", (audit_id,)
-            )
+            cursor = self._conn.execute("SELECT * FROM audit_records WHERE id = ?", (audit_id,))
             row = cursor.fetchone()
         return self._row_to_record(row) if row else None
 
@@ -347,9 +345,7 @@ class AuditSystem:
             rows = cursor.fetchall()
         return [self._row_to_record(row) for row in rows]
 
-    def get_session_history(
-        self, session_id: str, *, limit: int = 1000
-    ) -> list[AuditRecord]:
+    def get_session_history(self, session_id: str, *, limit: int = 1000) -> list[AuditRecord]:
         """Return audit records for a given session.
 
         Parameters
@@ -366,16 +362,13 @@ class AuditSystem:
         """
         with self._lock:
             cursor = self._conn.execute(
-                "SELECT * FROM audit_records "
-                "WHERE session_id = ? ORDER BY timestamp ASC LIMIT ?",
+                "SELECT * FROM audit_records WHERE session_id = ? ORDER BY timestamp ASC LIMIT ?",
                 (session_id, limit),
             )
             rows = cursor.fetchall()
         return [self._row_to_record(row) for row in rows]
 
-    def find_by_decision(
-        self, decision: str, *, limit: int = 100
-    ) -> list[AuditRecord]:
+    def find_by_decision(self, decision: str, *, limit: int = 100) -> list[AuditRecord]:
         """Find audit records by decision outcome.
 
         Parameters
@@ -392,8 +385,7 @@ class AuditSystem:
         """
         with self._lock:
             cursor = self._conn.execute(
-                "SELECT * FROM audit_records "
-                "WHERE decision = ? ORDER BY timestamp DESC LIMIT ?",
+                "SELECT * FROM audit_records WHERE decision = ? ORDER BY timestamp DESC LIMIT ?",
                 (decision, limit),
             )
             rows = cursor.fetchall()

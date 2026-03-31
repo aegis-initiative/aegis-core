@@ -180,9 +180,7 @@ class AGPContext:
     session_id: str
     """Opaque identifier for the agent's current session."""
 
-    timestamp: datetime = field(
-        default_factory=lambda: datetime.now(UTC)
-    )
+    timestamp: datetime = field(default_factory=lambda: datetime.now(UTC))
     """UTC timestamp when the context was created."""
 
     metadata: dict[str, Any] = field(default_factory=dict)
@@ -354,9 +352,7 @@ class AGPResponse:
     risk_breakdown: dict[str, float] = field(default_factory=dict)
     """Per-dimension risk score breakdown for policy trace."""
 
-    timestamp: datetime = field(
-        default_factory=lambda: datetime.now(UTC)
-    )
+    timestamp: datetime = field(default_factory=lambda: datetime.now(UTC))
     """UTC timestamp of the decision."""
 
     def to_dict(self) -> dict[str, Any]:

@@ -46,6 +46,7 @@ def _setup_full_access(runtime: AEGISRuntime, agent_id: str = "cov-agent") -> No
 # T3002: Trigger Cascading System Changes
 # ===================================================================
 
+
 class TestT3002CascadingSystemChanges:
     """Verify that cascading destructive action sequences are detected.
 
@@ -57,9 +58,7 @@ class TestT3002CascadingSystemChanges:
 
     @pytest.mark.atx1(technique_id="T3002")
     @pytest.mark.atm1(attack_vector="AV-2")
-    def test_cascading_actions_trigger_behavioral_anomaly(
-        self, runtime: AEGISRuntime
-    ):
+    def test_cascading_actions_trigger_behavioral_anomaly(self, runtime: AEGISRuntime):
         """A sequence of escalating actions should raise behavioral anomaly.
 
         Agent starts with benign reads, escalates to writes, then to
@@ -91,7 +90,8 @@ class TestT3002CascadingSystemChanges:
         # Combined with action severity 9.0 and target sensitivity,
         # this should NOT be approved without review.
         assert response.decision in (
-            Decision.REQUIRE_CONFIRMATION, Decision.ESCALATE,
+            Decision.REQUIRE_CONFIRMATION,
+            Decision.ESCALATE,
         ), (
             f"T3002: Cascading escalation from reads to destructive shell_exec "
             f"should be flagged. Decision: {response.decision.value}, "
@@ -100,9 +100,7 @@ class TestT3002CascadingSystemChanges:
 
     @pytest.mark.atx1(technique_id="T3002")
     @pytest.mark.atm1(attack_vector="AV-2")
-    def test_independent_evaluation_with_risk_context(
-        self, runtime: AEGISRuntime
-    ):
+    def test_independent_evaluation_with_risk_context(self, runtime: AEGISRuntime):
         """Verify that historical context is considered even when each
         action is individually low-risk.
 
@@ -132,14 +130,14 @@ class TestT3002CascadingSystemChanges:
         # This validates that cascade volume is detected
         assert final_response.risk_score is not None
         assert final_response.risk_score > 0.0, (
-            "T3002: 40+ sequential requests should elevate risk score "
-            "via historical rate dimension"
+            "T3002: 40+ sequential requests should elevate risk score via historical rate dimension"
         )
 
 
 # ===================================================================
 # T5001: Report False Task Completion
 # ===================================================================
+
 
 class TestT5001FalseTaskCompletion:
     """Verify that the audit system accurately records all outcomes.
@@ -168,12 +166,8 @@ class TestT5001FalseTaskCompletion:
 
         # Verify the denial is in the audit trail
         record = runtime.audit.get_record(response.audit_id)
-        assert record is not None, (
-            "T5001: Denied action must have an audit record"
-        )
-        assert record.decision == "denied", (
-            "T5001: Audit record must reflect the actual denial"
-        )
+        assert record is not None, "T5001: Denied action must have an audit record"
+        assert record.decision == "denied", "T5001: Audit record must reflect the actual denial"
         assert record.agent_id == "false-reporter"
         assert record.action_target == "/data/results.json"
 
@@ -218,9 +212,7 @@ class TestT5001FalseTaskCompletion:
         # Check that the failure was recorded in audit
         history = runtime.audit.get_agent_history("tool-fail-agent")
         # Should have at least 2 records: the approval + the failure
-        failure_records = [
-            r for r in history if r.decision == "execution_failed"
-        ]
+        failure_records = [r for r in history if r.decision == "execution_failed"]
         assert len(failure_records) >= 1, (
             "T5001: Tool execution failure must be recorded in audit trail. "
             "An agent cannot claim success if the tool actually failed."
@@ -230,6 +222,7 @@ class TestT5001FalseTaskCompletion:
 # ===================================================================
 # T10002: Establish Persistence via Environment Auto-Execution
 # ===================================================================
+
 
 class TestT10002AutoExecutionPersistence:
     """Verify that writes to auto-execution paths are blocked.
@@ -355,6 +348,7 @@ class TestT10002AutoExecutionPersistence:
 # T10003: Inject Persistent Agent Instructions
 # ===================================================================
 
+
 class TestT10003AgentInstructionInjection:
     """Verify that writes to agent instruction files are blocked.
 
@@ -441,9 +435,7 @@ class TestT10003AgentInstructionInjection:
 
     @pytest.mark.atx1(technique_id="T10003")
     @pytest.mark.atm1(attack_vector="AV-2")
-    def test_non_write_actions_to_instruction_files_allowed(
-        self, runtime: AEGISRuntime
-    ):
+    def test_non_write_actions_to_instruction_files_allowed(self, runtime: AEGISRuntime):
         """FILE_READ of instruction files should be allowed — only writes
         are dangerous for T10003."""
         _setup_full_access(runtime, "inject-agent-5")

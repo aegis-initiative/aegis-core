@@ -306,10 +306,7 @@ class DecisionEngine:
             # Proportionality override: if policy approved but risk is
             # too high, escalate the decision.
             if decision == Decision.APPROVED:
-                if (
-                    risk_assessment.composite_score
-                    >= self._risk.escalation_threshold
-                ):
+                if risk_assessment.composite_score >= self._risk.escalation_threshold:
                     decision = Decision.ESCALATE
                     reason = (
                         f"Risk score {risk_assessment.composite_score}/10.0 "
@@ -317,10 +314,7 @@ class DecisionEngine:
                         f"({self._risk.escalation_threshold}). "
                         f"{risk_assessment.explanation}"
                     )
-                elif (
-                    risk_assessment.composite_score
-                    >= self._risk.require_confirmation_threshold
-                ):
+                elif risk_assessment.composite_score >= self._risk.require_confirmation_threshold:
                     decision = Decision.REQUIRE_CONFIRMATION
                     reason = (
                         f"Risk score {risk_assessment.composite_score}/10.0 "

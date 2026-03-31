@@ -1,6 +1,6 @@
 """Tests for the CapabilityRegistry."""
 
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 import pytest
 
@@ -34,11 +34,11 @@ class TestCapabilityIsActive:
         assert make_cap().is_active()
 
     def test_future_expiry_is_active(self):
-        future = datetime.now(timezone.utc) + timedelta(days=1)
+        future = datetime.now(UTC) + timedelta(days=1)
         assert make_cap(expires_at=future).is_active()
 
     def test_past_expiry_is_not_active(self):
-        past = datetime.now(timezone.utc) - timedelta(days=1)
+        past = datetime.now(UTC) - timedelta(days=1)
         assert not make_cap(expires_at=past).is_active()
 
 
@@ -57,7 +57,7 @@ class TestCapabilityCovers:
         assert not cap.covers("file_read", "/etc/hosts")
 
     def test_expired_capability_never_covers(self):
-        past = datetime.now(timezone.utc) - timedelta(days=1)
+        past = datetime.now(UTC) - timedelta(days=1)
         cap = make_cap(expires_at=past, action_types=["tool_call"], target_patterns=["*"])
         assert not cap.covers("tool_call", "anything")
 
@@ -151,20 +151,18 @@ class TestRegistryGrant:
     def test_thread_safe_concurrent_grants(self, registry):
         """Test that concurrent grant operations are thread-safe."""
         import threading
+
         registry.register(make_cap())
-        
+
         def grant_agent(agent_id):
             registry.grant(agent_id, "cap-1")
-        
-        threads = [
-            threading.Thread(target=grant_agent, args=(f"agent-{i}",))
-            for i in range(10)
-        ]
+
+        threads = [threading.Thread(target=grant_agent, args=(f"agent-{i}",)) for i in range(10)]
         for t in threads:
             t.start()
         for t in threads:
             t.join()
-        
+
         # All agents should have the capability
         for i in range(10):
             assert registry.has_capability_for_action(f"agent-{i}", "tool_call", "anything")
@@ -180,7 +178,7 @@ class TestHasCapabilityForAction:
         assert not registry.has_capability_for_action("agent-1", "tool_call", "tool")
 
     def test_expired_capability_not_counted(self, registry):
-        past = datetime.now(timezone.utc) - timedelta(days=1)
+        past = datetime.now(UTC) - timedelta(days=1)
         registry.register(make_cap(expires_at=past))
         registry.grant("agent-1", "cap-1")
         assert not registry.has_capability_for_action("agent-1", "tool_call", "tool")

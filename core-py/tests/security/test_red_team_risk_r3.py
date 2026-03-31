@@ -17,25 +17,20 @@ Attacks that go deeper than the R1/R2 findings. These target:
 
 from __future__ import annotations
 
-import importlib
 from types import MappingProxyType
 from unittest.mock import MagicMock
 
 import pytest
 
 from aegis_core import AEGISRuntime
-from aegis_core.protocol import ActionType, Decision
+from aegis_core.protocol import ActionType
 from aegis_core.risk import (
-    _SENSITIVE_TARGET_PATTERNS,
-    ACTION_SEVERITY,
-    CAPABILITY_RISK_WEIGHTS,
     RiskEngine,
 )
 
 from .conftest import (
     make_allow_policy,
     make_capability,
-    make_request,
 )
 
 
@@ -59,6 +54,7 @@ def _setup_full_access(runtime: AEGISRuntime, agent_id: str = "r3-agent") -> Non
 # ===================================================================
 # 1. Module Attribute Replacement — bypass MappingProxyType entirely
 # ===================================================================
+
 
 class TestModuleAttributeReplacement:
     """MappingProxyType prevents dict mutation, but not attribute rebinding.
@@ -84,9 +80,14 @@ class TestModuleAttributeReplacement:
         original = risk_mod.CAPABILITY_RISK_WEIGHTS
 
         # Attack: replace the entire weight table
-        risk_mod.CAPABILITY_RISK_WEIGHTS = MappingProxyType({
-            "low": 0.0, "medium": 0.0, "high": 0.0, "critical": 0.0,
-        })
+        risk_mod.CAPABILITY_RISK_WEIGHTS = MappingProxyType(
+            {
+                "low": 0.0,
+                "medium": 0.0,
+                "high": 0.0,
+                "critical": 0.0,
+            }
+        )
 
         try:
             engine = RiskEngine()
@@ -112,10 +113,16 @@ class TestModuleAttributeReplacement:
 
         original = risk_mod.ACTION_SEVERITY
 
-        risk_mod.ACTION_SEVERITY = MappingProxyType({
-            "shell_exec": 0.0, "file_write": 0.0, "api_call": 0.0,
-            "data_access": 0.0, "file_read": 0.0, "tool_call": 0.0,
-        })
+        risk_mod.ACTION_SEVERITY = MappingProxyType(
+            {
+                "shell_exec": 0.0,
+                "file_write": 0.0,
+                "api_call": 0.0,
+                "data_access": 0.0,
+                "file_read": 0.0,
+                "tool_call": 0.0,
+            }
+        )
 
         try:
             engine = RiskEngine()
@@ -161,6 +168,7 @@ class TestModuleAttributeReplacement:
 # ===================================================================
 # 2. Private Attribute Bypass — object.__setattr__ defeats @property
 # ===================================================================
+
 
 class TestPrivateAttributeBypass:
     """@property prevents `engine.threshold = x`, but object.__setattr__
@@ -224,6 +232,7 @@ class TestPrivateAttributeBypass:
 # ===================================================================
 # 3. Prefix Evasion — fnmatch anchors at start of string
 # ===================================================================
+
 
 class TestPrefixEvasion:
     """fnmatch.fnmatch('sudo rm -rf /', 'rm *') is False because
@@ -322,6 +331,7 @@ class TestPrefixEvasion:
 # 4. URL Scheme Path Normalization Bypass
 # ===================================================================
 
+
 class TestUrlSchemeBypass:
     """The normpath logic is skipped when '://' is found in the target.
     An attacker can inject '://' to prevent path normalization."""
@@ -350,7 +360,6 @@ class TestUrlSchemeBypass:
             # Key finding: normpath is bypassed, so ../../ remains
             # in the target string rather than being collapsed
 
-
     @pytest.mark.atx1(technique_id="T10004")
     def test_data_uri_with_embedded_path(self):
         """data: URI containing sensitive path — normpath skipped."""
@@ -371,6 +380,7 @@ class TestUrlSchemeBypass:
 # ===================================================================
 # 5. Weight Budget Gap — weights sum to 0.90, not 1.0
 # ===================================================================
+
 
 class TestWeightBudgetGap:
     """The five dimension weights are: 0.10 + 0.30 + 0.30 + 0.10 + 0.10 = 0.90.
@@ -397,9 +407,7 @@ class TestWeightBudgetGap:
         composite can only reach 9.0 — exactly the escalation threshold."""
         # All dims at 10.0:
         # 0.10*10 + 0.30*10 + 0.30*10 + 0.10*10 + 0.10*10 = 9.0
-        max_without_amplifier = (
-            0.10 * 10.0 + 0.30 * 10.0 + 0.30 * 10.0 + 0.10 * 10.0 + 0.10 * 10.0
-        )
+        max_without_amplifier = 0.10 * 10.0 + 0.30 * 10.0 + 0.30 * 10.0 + 0.10 * 10.0 + 0.10 * 10.0
 
         # RT-R3-009: Max base composite is exactly the escalation threshold
         assert max_without_amplifier == 9.0, (
@@ -414,10 +422,10 @@ class TestWeightBudgetGap:
         engine = RiskEngine()
 
         result = engine.assess(
-            action_type="shell_exec",     # 9.0
+            action_type="shell_exec",  # 9.0
             target="rm -rf /etc/shadow",  # should hit both rm* and *shadow*
             agent_id="test",
-            capability_tier="critical",    # 9.0
+            capability_tier="critical",  # 9.0
         )
 
         # Without history/behavioral dims (both 0.0), base is:
@@ -433,6 +441,7 @@ class TestWeightBudgetGap:
 # ===================================================================
 # 6. Unicode NFKC Normalization Gaps
 # ===================================================================
+
 
 class TestUnicodeNormalizationGaps:
     """_normalize_unicode handles 5 specific homoglyphs. It does NOT
@@ -481,7 +490,7 @@ class TestUnicodeNormalizationGaps:
         # U+29F8 BIG SOLIDUS — not in the normalizer
         result = engine.assess(
             action_type="file_read",
-            target="\u29F8etc\u29F8shadow",
+            target="\u29f8etc\u29f8shadow",
             agent_id="test",
         )
 
@@ -498,9 +507,7 @@ class TestUnicodeNormalizationGaps:
         )
         # Both should score high via *shadow*, but the non-normalized
         # version might miss /etc/* or /root/* path patterns
-        assert result.target_sensitivity > 0.0, (
-            "Substring pattern *shadow* still catches this"
-        )
+        assert result.target_sensitivity > 0.0, "Substring pattern *shadow* still catches this"
 
     @pytest.mark.atx1(technique_id="T10004")
     def test_url_encoded_path_not_decoded(self):
@@ -555,6 +562,7 @@ class TestUnicodeNormalizationGaps:
 # 7. Backslash Path Evasion
 # ===================================================================
 
+
 class TestBackslashPathEvasion:
     """POSIX patterns use forward slashes. Windows-style backslash paths
     won't match POSIX glob patterns. posixpath.normpath doesn't convert
@@ -581,14 +589,13 @@ class TestBackslashPathEvasion:
 
         # RT-R3-014: Backslash paths don't match POSIX patterns
         if backslash.target_sensitivity < forward.target_sensitivity:
-            assert True, (
-                "RT-R3-014: Backslash path evades POSIX glob patterns"
-            )
+            assert True, "RT-R3-014: Backslash path evades POSIX glob patterns"
 
 
 # ===================================================================
 # 8. Empty String Edge Cases
 # ===================================================================
+
 
 class TestEmptyStringEdgeCases:
     """Empty strings hit special code paths in the engine."""
@@ -604,7 +611,6 @@ class TestEmptyStringEdgeCases:
         warning log is still a finding — empty string gets max severity
         without any diagnostic logging.
         """
-        import logging
 
         engine = RiskEngine()
 
@@ -635,9 +641,7 @@ class TestEmptyStringEdgeCases:
             agent_id="test",
         )
 
-        assert result.target_sensitivity == 0.0, (
-            "Empty target always scores 0.0 for sensitivity"
-        )
+        assert result.target_sensitivity == 0.0, "Empty target always scores 0.0 for sensitivity"
 
     @pytest.mark.atx1(technique_id="T9001")
     def test_whitespace_only_target(self):
@@ -659,6 +663,7 @@ class TestEmptyStringEdgeCases:
 # ===================================================================
 # 9. Amplifier Asymmetry Exploitation
 # ===================================================================
+
 
 class TestAmplifierAsymmetry:
     """The amplifier only fires when BOTH action_severity >= 7.0 AND
@@ -715,6 +720,7 @@ class TestAmplifierAsymmetry:
 # ===================================================================
 # 10. Category Classification Blind Spots
 # ===================================================================
+
 
 class TestCategoryBlindSpots:
     """_classify_category has narrow heuristics — many actions get
@@ -778,6 +784,7 @@ class TestCategoryBlindSpots:
 # 11. Explanation Injection for Downstream Consumers
 # ===================================================================
 
+
 class TestExplanationDownstreamInjection:
     """The explanation field embeds the raw target string.
     Downstream consumers (dashboards, logs, LLM agents) may parse
@@ -814,9 +821,7 @@ class TestExplanationDownstreamInjection:
                 "RT-R3-021: Checking if backtick sanitization is complete"
             )
         else:
-            pytest.fail(
-                "RT-R3-021: JSON payload in target appears unsanitized in explanation"
-            )
+            pytest.fail("RT-R3-021: JSON payload in target appears unsanitized in explanation")
 
     @pytest.mark.atx1(technique_id="T5002")
     def test_newline_injection_in_explanation(self):
@@ -843,9 +848,7 @@ class TestExplanationDownstreamInjection:
                 "injection persists"
             )
         else:
-            pytest.fail(
-                "RT-R3-022: Newlines in target propagate to explanation"
-            )
+            pytest.fail("RT-R3-022: Newlines in target propagate to explanation")
 
     @pytest.mark.atx1(technique_id="T5002")
     def test_html_injection_in_explanation(self):
@@ -863,19 +866,17 @@ class TestExplanationDownstreamInjection:
 
         # RT-R3-023: The other session sanitized <, >, ", \n, etc.
         # Validate the sanitization, then probe for bypass vectors.
-        assert "<script>" not in result.explanation, (
-            "Raw HTML should be sanitized in explanation"
-        )
+        assert "<script>" not in result.explanation, "Raw HTML should be sanitized in explanation"
 
         # But does the sanitization use a denylist or allowlist?
         # Try Unicode angle brackets and HTML entities
         bypass_targets = [
-            "\uFF1Cscript\uFF1E",              # fullwidth < >
-            "\u2039script\u203A",              # single angle quotation marks
-            "\u276Escript\u276F",              # heavy angle brackets
-            "&#60;script&#62;",                # HTML numeric entities
-            "&lt;script&gt;",                  # HTML named entities
-            "\u00ABscript\u00BB",              # guillemets
+            "\uff1cscript\uff1e",  # fullwidth < >
+            "\u2039script\u203a",  # single angle quotation marks
+            "\u276escript\u276f",  # heavy angle brackets
+            "&#60;script&#62;",  # HTML numeric entities
+            "&lt;script&gt;",  # HTML named entities
+            "\u00abscript\u00bb",  # guillemets
         ]
 
         bypasses = []
@@ -897,6 +898,7 @@ class TestExplanationDownstreamInjection:
 # ===================================================================
 # 12. Audit System Dependency Exploitation
 # ===================================================================
+
 
 class TestAuditDependencyExploitation:
     """The risk engine trusts the audit system completely. A compromised
@@ -937,7 +939,7 @@ class TestAuditDependencyExploitation:
 
         result = engine.assess(
             action_type="shell_exec",  # new action type → +3.0
-            target="/tmp/x",           # target fixation → +4.0
+            target="/tmp/x",  # target fixation → +4.0
             agent_id="victim-agent",
         )
 
@@ -959,9 +961,13 @@ class TestAuditDependencyExploitation:
         engine = RiskEngine()
 
         mock_audit = MagicMock()
-        mock_audit.get_agent_history.return_value = [MagicMock(
-            action_type="x", action_target="y", decision="denied",
-        )] * 100
+        mock_audit.get_agent_history.return_value = [
+            MagicMock(
+                action_type="x",
+                action_target="y",
+                decision="denied",
+            )
+        ] * 100
 
         # BLUE TEAM FIX VALIDATED: _audit is immutable after init
         with pytest.raises(AttributeError, match="Cannot modify"):

@@ -22,7 +22,7 @@ from __future__ import annotations
 import pytest
 
 from aegis_core import AEGISRuntime
-from aegis_core.protocol import ActionType, Decision
+from aegis_core.protocol import ActionType
 from aegis_core.risk import (
     _SENSITIVE_TARGET_PATTERNS,
     ACTION_SEVERITY,
@@ -58,13 +58,12 @@ def _setup_full_access(runtime: AEGISRuntime, agent_id: str = "adv-agent") -> No
 # 1. Audit Poisoning — manipulate behavioral scoring via history
 # ===================================================================
 
+
 class TestAuditPoisoning:
     """Flood the audit trail to normalize a malicious baseline."""
 
     @pytest.mark.atx1(technique_id="T8001")
-    def test_baseline_poisoning_detected_via_sensitivity_shift(
-        self, runtime: AEGISRuntime
-    ):
+    def test_baseline_poisoning_detected_via_sensitivity_shift(self, runtime: AEGISRuntime):
         """Baseline poisoning now detected via target sensitivity shift.
 
         ROUND 6 RED: 50 benign shell_exec normalized the action_type,
@@ -114,10 +113,10 @@ class TestAuditPoisoning:
         # Submit requests to /etc/passwd with slight variations
         variants = [
             "/etc/passwd",
-            "/etc/passwd ",        # trailing space
-            "/etc/./passwd",       # redundant segment
-            "/ETC/PASSWD",         # case variation
-            "/etc//passwd",        # double slash
+            "/etc/passwd ",  # trailing space
+            "/etc/./passwd",  # redundant segment
+            "/ETC/PASSWD",  # case variation
+            "/etc//passwd",  # double slash
         ]
 
         for variant in variants * 2:  # 10 requests, 2 each
@@ -144,6 +143,7 @@ class TestAuditPoisoning:
 # 2. Threshold Mutation — modify thresholds at runtime
 # ===================================================================
 
+
 class TestThresholdMutation:
     """Thresholds should be read-only properties."""
 
@@ -169,6 +169,7 @@ class TestThresholdMutation:
 # ===================================================================
 # 3. Pattern List Mutation — modify the sensitive patterns list
 # ===================================================================
+
 
 class TestPatternListMutation:
     """The sensitive target patterns should be immutable."""
@@ -199,6 +200,7 @@ class TestPatternListMutation:
 # ===================================================================
 # 4. Explanation Injection — embed misleading content
 # ===================================================================
+
 
 class TestExplanationInjection:
     """The explanation should sanitize the target string."""
@@ -237,6 +239,7 @@ class TestExplanationInjection:
 # 5. fnmatch Glob Injection — abuse glob semantics
 # ===================================================================
 
+
 class TestFnmatchGlobInjection:
     """Craft targets that exploit fnmatch's glob interpretation."""
 
@@ -251,9 +254,9 @@ class TestFnmatchGlobInjection:
 
         # Target with brackets that might confuse fnmatch
         bracket_targets = [
-            "/etc/[passwd]",       # bracket expression
-            "/etc/passw[d]",       # partial bracket
-            "/etc/p[a]sswd",       # mid-word bracket
+            "/etc/[passwd]",  # bracket expression
+            "/etc/passw[d]",  # partial bracket
+            "/etc/p[a]sswd",  # mid-word bracket
         ]
 
         for target in bracket_targets:
@@ -294,6 +297,7 @@ class TestFnmatchGlobInjection:
 # ===================================================================
 # 6. Capability Tier Spoofing
 # ===================================================================
+
 
 class TestCapabilityTierSpoofing:
     """Provide unrecognized capability tiers to get the default score."""
@@ -336,6 +340,7 @@ class TestCapabilityTierSpoofing:
 # 7. Weight Exploitation — minimize composite via input selection
 # ===================================================================
 
+
 class TestWeightExploitation:
     """Select inputs to minimize the composite score."""
 
@@ -345,17 +350,15 @@ class TestWeightExploitation:
         engine = RiskEngine()
 
         result = engine.assess(
-            action_type="file_read",      # lowest severity: 2.0
-            target="x",                    # no pattern match: 0.0
+            action_type="file_read",  # lowest severity: 2.0
+            target="x",  # no pattern match: 0.0
             agent_id="test",
-            capability_tier="low",         # lowest tier: 1.0
+            capability_tier="low",  # lowest tier: 1.0
         )
 
         # Minimum composite: 0.10*1.0 + 0.30*2.0 + 0.30*0.0
         #                   + 0.10*0.0 + 0.10*0.0 = 0.70
-        assert result.composite_score < 1.0, (
-            f"Minimum achievable score: {result.composite_score}"
-        )
+        assert result.composite_score < 1.0, f"Minimum achievable score: {result.composite_score}"
 
     @pytest.mark.atx1(technique_id="T2001")
     def test_data_access_to_production_stays_below_threshold(self):
@@ -363,10 +366,10 @@ class TestWeightExploitation:
         engine = RiskEngine()
 
         result = engine.assess(
-            action_type="data_access",     # severity: 4.0
+            action_type="data_access",  # severity: 4.0
             target="production-database",  # matches *production*: 5.0
             agent_id="test",
-            capability_tier="high",        # tier: 6.0
+            capability_tier="high",  # tier: 6.0
         )
 
         # 0.10*6.0 + 0.30*4.0 + 0.30*5.0 + 0.10*0 + 0.10*0 = 3.30
@@ -380,6 +383,7 @@ class TestWeightExploitation:
 # ===================================================================
 # 8. Immutability Verification — confirm hardening from other session
 # ===================================================================
+
 
 class TestImmutabilityVerification:
     """Verify that MappingProxyType prevents dict mutation."""

@@ -16,20 +16,20 @@ from __future__ import annotations
 
 import threading
 import time
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 import pytest
 
 from aegis_core import AEGISRuntime
-from aegis_core.capability_registry import Capability, CapabilityRegistry
+from aegis_core.capability_registry import Capability
 from aegis_core.decision_engine import DecisionEngine
-from aegis_core.policy_engine import Policy, PolicyCondition, PolicyEffect, PolicyEngine
+from aegis_core.policy_engine import Policy, PolicyCondition, PolicyEffect
 from aegis_core.protocol import (
+    ActionType,
     AGPAction,
     AGPContext,
     AGPRequest,
     AGPResponse,
-    ActionType,
     Decision,
 )
 
@@ -40,10 +40,10 @@ from .conftest import (
     make_request,
 )
 
-
 # ===================================================================
 # AV-1: Protocol-Level Attacks
 # ===================================================================
+
 
 class TestProtocolAttacks:
     """ATM-1 AV-1: Attacks against the AGP protocol layer."""
@@ -103,6 +103,7 @@ class TestProtocolAttacks:
 # ===================================================================
 # AV-2: Policy-Layer Attacks
 # ===================================================================
+
 
 class TestPolicyAttacks:
     """ATM-1 AV-2: Attacks against the policy evaluation layer."""
@@ -338,7 +339,8 @@ class TestPolicyAttacks:
         )
         response = runtime.gateway.submit(request)
         assert response.decision in (
-            Decision.REQUIRE_CONFIRMATION, Decision.ESCALATE,
+            Decision.REQUIRE_CONFIRMATION,
+            Decision.ESCALATE,
         ), (
             f"Destructive action should be escalated by risk engine "
             f"(risk_score={response.risk_score})"
@@ -348,6 +350,7 @@ class TestPolicyAttacks:
 # ===================================================================
 # AV-3: Identity & Authentication Attacks
 # ===================================================================
+
 
 class TestIdentityAttacks:
     """ATM-1 AV-3: Attacks against identity and authentication."""
@@ -399,11 +402,11 @@ class TestIdentityAttacks:
         """Test agent_id edge cases that pass validation."""
         # These are valid per the regex but could be confusing
         edge_case_ids = [
-            "." * 256,       # 256 dots
-            "-" * 256,       # 256 hyphens
-            "_" * 256,       # 256 underscores
-            "a",             # single char
-            "A.B-C_D",       # mixed separators
+            "." * 256,  # 256 dots
+            "-" * 256,  # 256 hyphens
+            "_" * 256,  # 256 underscores
+            "a",  # single char
+            "A.B-C_D",  # mixed separators
         ]
 
         for agent_id in edge_case_ids:
@@ -426,6 +429,7 @@ class TestIdentityAttacks:
 # ===================================================================
 # AV-4: Audit & Logging Attacks
 # ===================================================================
+
 
 class TestAuditAttacks:
     """ATM-1 AV-4: Attacks against the audit trail."""
@@ -510,6 +514,7 @@ class TestAuditAttacks:
 # ===================================================================
 # AV-5: Timing & Side-Channel Attacks
 # ===================================================================
+
 
 class TestTimingAttacks:
     """ATM-1 AV-5: Race conditions and TOCTOU exploits."""
@@ -608,6 +613,7 @@ class TestTimingAttacks:
 # AV-7: Distributed & Coordinated Attacks
 # ===================================================================
 
+
 class TestCoordinatedAttacks:
     """ATM-1 AV-7: Multi-agent coordinated attacks."""
 
@@ -681,7 +687,7 @@ class TestCoordinatedAttacks:
             description="Already expired",
             action_types=[ActionType.TOOL_CALL.value],
             target_patterns=["*"],
-            expires_at=datetime.now(timezone.utc) - timedelta(hours=1),
+            expires_at=datetime.now(UTC) - timedelta(hours=1),
         )
         runtime.capabilities.register(expired_cap)
         runtime.capabilities.grant("expired-agent", "cap-expired")
@@ -689,14 +695,13 @@ class TestCoordinatedAttacks:
 
         request = make_request(agent_id="expired-agent", target="test-target")
         response = runtime.gateway.submit(request)
-        assert response.decision == Decision.DENIED, (
-            "Expired capability correctly denied"
-        )
+        assert response.decision == Decision.DENIED, "Expired capability correctly denied"
 
 
 # ===================================================================
 # Cross-Cutting: Security Property Validation
 # ===================================================================
+
 
 class TestSecurityPropertyViolations:
     """Tests targeting specific AEGIS security properties (SP-1..SP-5)."""
@@ -713,9 +718,7 @@ class TestSecurityPropertyViolations:
             decisions.append(response.decision)
 
         unique_decisions = set(decisions)
-        assert len(unique_decisions) == 1, (
-            f"Non-deterministic decisions: {unique_decisions}"
-        )
+        assert len(unique_decisions) == 1, f"Non-deterministic decisions: {unique_decisions}"
 
     @pytest.mark.security_property(sp_id="SP-4")
     def test_sp4_no_action_without_capability(self, runtime: AEGISRuntime):
@@ -737,12 +740,8 @@ class TestSecurityPropertyViolations:
     @pytest.mark.security_property(sp_id="SP-5")
     def test_sp5_audit_completeness(self, configured_runtime: AEGISRuntime):
         """SP-5: Every decision (approved and denied) must be audited."""
-        approved_req = make_request(
-            agent_id="test-agent", target="test-target"
-        )
-        denied_req = make_request(
-            agent_id="unknown-agent", target="test-target"
-        )
+        approved_req = make_request(agent_id="test-agent", target="test-target")
+        denied_req = make_request(agent_id="unknown-agent", target="test-target")
 
         approved_resp = configured_runtime.gateway.submit(approved_req)
         denied_resp = configured_runtime.gateway.submit(denied_req)

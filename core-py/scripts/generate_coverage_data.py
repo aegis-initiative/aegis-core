@@ -40,11 +40,17 @@ def main() -> None:
     print(f"Generated: {output_path}")
     print(f"  Tests:        {s['total_tests']}")
     print(f"  Rounds:       {s['red_blue_rounds']}")
-    print(f"  ATX-1:        {s['atx1']['covered']}/{s['atx1']['applicable']} "
-          f"({s['atx1']['coverage_percent']}%)")
-    print(f"  ATM-1:        {s['atm1']['covered']}/{s['atm1']['applicable']} "
-          f"({s['atm1']['coverage_percent']}%)")
-    print(f"  Properties:   {s['security_properties']['covered']}/{s['security_properties']['total']}")
+    print(
+        f"  ATX-1:        {s['atx1']['covered']}/{s['atx1']['applicable']} "
+        f"({s['atx1']['coverage_percent']}%)"
+    )
+    print(
+        f"  ATM-1:        {s['atm1']['covered']}/{s['atm1']['applicable']} "
+        f"({s['atm1']['coverage_percent']}%)"
+    )
+    print(
+        f"  Properties:   {s['security_properties']['covered']}/{s['security_properties']['total']}"
+    )
     print(f"  Deferred:     {s['findings_deferred']}")
 
 

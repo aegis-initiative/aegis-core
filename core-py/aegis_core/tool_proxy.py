@@ -211,13 +211,11 @@ class ToolProxy:
             if self._current_call_depth >= self._max_call_depth:
                 raise RecursionError(
                     f"Tool call depth ({self._current_call_depth}) exceeds maximum "
-                f"({self._max_call_depth}). Possible recursive invocation loop."
-            )
+                    f"({self._max_call_depth}). Possible recursive invocation loop."
+                )
 
         if tool_name not in self._tools:
-            raise ValueError(
-                f"Tool '{tool_name}' is not registered with this ToolProxy."
-            )
+            raise ValueError(f"Tool '{tool_name}' is not registered with this ToolProxy.")
 
         fn, target = self._tools[tool_name]
 
@@ -246,8 +244,7 @@ class ToolProxy:
                 )
             # M-8: Don't leak internal IDs or full reason in exception
             raise PermissionError(
-                f"Tool call '{tool_name}' was {response.decision.value} "
-                f"by governance policy."
+                f"Tool call '{tool_name}' was {response.decision.value} by governance policy."
             )
 
         # Execute the tool with depth tracking (M-6: thread-safe)
@@ -339,9 +336,7 @@ class ToolProxy:
                 )
 
         if tool_name not in self._tools:
-            raise ValueError(
-                f"Tool '{tool_name}' is not registered with this ToolProxy."
-            )
+            raise ValueError(f"Tool '{tool_name}' is not registered with this ToolProxy.")
 
         fn, target = self._tools[tool_name]
 
@@ -369,8 +364,7 @@ class ToolProxy:
                 )
             # M-8: Don't leak internal IDs or full reason in exception
             raise PermissionError(
-                f"Tool call '{tool_name}' was {response.decision.value} "
-                f"by governance policy."
+                f"Tool call '{tool_name}' was {response.decision.value} by governance policy."
             )
 
         # BT-AUDIT-005: Execute the async tool with depth tracking
@@ -458,6 +452,7 @@ class ToolProxy:
         )
         # M-5: deque with maxlen handles bounding automatically
         self._call_history.append(record)
+
     def get_call_history(self) -> list[CallRecord]:
         """Get the call history.
 

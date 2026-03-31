@@ -99,11 +99,9 @@ class TestBatchRecord:
         assert audit_ids == []
 
     def test_batch_content_round_trip(self, audit):
-        records = [
-            _record_kwargs(agent_id=f"agent-{i}") for i in range(3)
-        ]
+        records = [_record_kwargs(agent_id=f"agent-{i}") for i in range(3)]
         audit_ids = audit.batch_record(records)
-        
+
         retrieved = [audit.get_record(aid) for aid in audit_ids]
         assert len(retrieved) == 3
         assert [r.agent_id for r in retrieved] == ["agent-0", "agent-1", "agent-2"]
@@ -112,7 +110,7 @@ class TestBatchRecord:
         """Test that batch inserts are atomic."""
         records = [_record_kwargs(agent_id=f"agent-batch-{i}") for i in range(10)]
         audit_ids = audit.batch_record(records)
-        
+
         # All records should be inserted
         assert len(audit_ids) == 10
         # All should be retrievable
