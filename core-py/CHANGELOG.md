@@ -9,6 +9,56 @@ and versions are synchronized with the main [AEGIS Initiative Changelog](../CHAN
 
 ---
 
+# [0.1.2] — 2026-03-31
+
+**Status:** STABLE — Production-ready reference implementation
+
+## Added
+
+- **Stripe-style descriptive errors** — structured error hierarchy with
+  `AEGIS-{CAT}-{NNN}` error codes, `cause` field, auto-generated `help_url`,
+  and `to_dict()` for JSON API responses. 37 error codes cataloged in
+  `errors.py`, all 47 raise sites updated across 5 modules. (closes #3)
+- **Python CI workflow** — `python-ci.yml` runs pytest + ruff + mypy on every
+  push to `core-py/`
+- **50 new error tests** — full coverage of structured error fields, serialization,
+  help URL generation, and subclass inheritance
+
+## Changed
+
+- **CLAUDE.md** updated to reflect current codebase (was stale since scaffolding)
+- **core-py/README.md** rewritten — fixed broken install sections, wrong import
+  paths, outdated content, license badge
+- **Root README.md** reformatted for markdownlint compliance
+
+## Fixed
+
+- **65 markdownlint errors** resolved across all 15 markdown files
+- **167 ruff lint/format errors** resolved across 35 Python files
+- **Spellcheck** — 24 technical terms added to `.cspell.json`
+- **`__all__` exports** sorted per isort convention
+- **Per-file ruff ignores** configured for test files (ambiguous unicode in
+  security evasion tests is intentional, not a lint error)
+
+## Stats
+
+- 403 tests, all passing
+- 5 CI workflows, all green (Docs Consistency, Docs Lint, Link Check,
+  Python CI, Spellcheck)
+- 0 open issues
+- ATX-1: 25/25 applicable (100%)
+- ATM-1: 6/6 applicable (100%)
+
+## Deferred to v0.2.0 (Rust port)
+
+- Rust production runtime (`core-rs/`)
+- Agent identity authentication (RFC-0002 transport layer)
+- Parameter semantic analysis (NLP/policy DSL)
+- Policy condition sandboxing
+- Persistent replay detection
+
+---
+
 # [0.1.1b2] — 2026-03-30
 
 **Status:** BETA — Independent adversarial hardening pass
