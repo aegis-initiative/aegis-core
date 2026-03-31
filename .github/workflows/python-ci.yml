@@ -1,0 +1,22 @@
+name: Python CI
+on:
+  push:
+    paths: ['core-py/**']
+  pull_request:
+    paths: ['core-py/**']
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: core-py
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: pip install -e ".[dev]"
+      - run: ruff check .
+      - run: ruff format --check .
+      - run: mypy aegis_core/
+      - run: pytest -q
