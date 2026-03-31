@@ -438,8 +438,18 @@ class AuditSystem:
     # ------------------------------------------------------------------
 
     def _row_to_record(self, row: tuple[Any, ...]) -> AuditRecord:
-        """Convert a database row to an AuditRecord."""
+        """Convert a database row to an AuditRecord.
+
+        BT-AUDIT-007: Handles corrupted JSON gracefully instead of
+        propagating unhandled json.JSONDecodeError.
+        """
         data = dict(zip(self._COLUMNS, row, strict=False))
-        data["action_parameters"] = json.loads(data["action_parameters"])
-        data["policy_evaluations"] = json.loads(data["policy_evaluations"])
+        try:
+            data["action_parameters"] = json.loads(data["action_parameters"])
+        except (json.JSONDecodeError, TypeError):
+            data["action_parameters"] = {}
+        try:
+            data["policy_evaluations"] = json.loads(data["policy_evaluations"])
+        except (json.JSONDecodeError, TypeError):
+            data["policy_evaluations"] = []
         return AuditRecord(**data)

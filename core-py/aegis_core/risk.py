@@ -467,8 +467,15 @@ class RiskEngine:
         (RT-RISK-002, T10004, RT-R3-006/012/014).
         """
 
-        # RT-R3-012: URL-decode percent-encoded characters before matching
-        url_decoded = url_unquote(target)
+        # RT-R3-012: URL-decode percent-encoded characters before matching.
+        # BT-AUDIT-008: Decode iteratively to handle double/triple encoding
+        # (%252F → %2F → /). Cap iterations to prevent infinite loops.
+        url_decoded = target
+        for _ in range(3):
+            decoded = url_unquote(url_decoded)
+            if decoded == url_decoded:
+                break
+            url_decoded = decoded
 
         # Normalize Unicode homoglyphs (T10004, RT-R3-010/011/013/014)
         unicode_normalized = self._normalize_unicode(url_decoded)

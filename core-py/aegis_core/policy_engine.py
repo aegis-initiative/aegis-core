@@ -24,6 +24,7 @@ request against the same policy set always yields the same outcome.
 
 from __future__ import annotations
 
+import hmac
 import threading
 from collections.abc import Callable
 from dataclasses import dataclass
@@ -191,7 +192,10 @@ class PolicyEngine:
             If the token does not match.
         """
         with self._lock:
-            if self._seal_token is None or token != self._seal_token:
+            # BT-AUDIT-004: Constant-time comparison prevents timing attacks
+            if self._seal_token is None or not hmac.compare_digest(
+                token.encode(), self._seal_token.encode()
+            ):
                 raise AEGISPolicyError(
                     "Invalid seal token - cannot unseal policy engine",
                     error_code="INVALID_SEAL_TOKEN",
@@ -232,9 +236,10 @@ class PolicyEngine:
         AEGISPolicyError
             If the policy is invalid or the engine is frozen.
         """
-        self._check_frozen()
         self.validate_policy(policy)
         with self._lock:
+            # BT-AUDIT-003: Freeze check inside lock to prevent TOCTOU.
+            self._check_frozen()
             if policy.id in self._policies:
                 raise ValueError(f"Policy '{policy.id}' is already registered.")
             self._policies[policy.id] = policy
@@ -252,8 +257,8 @@ class PolicyEngine:
         AEGISPolicyError
             If the engine is frozen.
         """
-        self._check_frozen()
         with self._lock:
+            self._check_frozen()
             self._policies.pop(policy_id, None)
 
     def get_policy(self, policy_id: str) -> Policy | None:

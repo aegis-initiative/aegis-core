@@ -22,6 +22,7 @@ Design
 from __future__ import annotations
 
 import fnmatch
+import hmac
 import posixpath
 import threading
 from dataclasses import dataclass, field
@@ -182,7 +183,10 @@ class CapabilityRegistry:
             If the token does not match the seal token.
         """
         with self._lock:
-            if self._seal_token is None or token != self._seal_token:
+            # BT-AUDIT-004: Constant-time comparison prevents timing attacks
+            if self._seal_token is None or not hmac.compare_digest(
+                token.encode(), self._seal_token.encode()
+            ):
                 raise AEGISCapabilityError(
                     "Invalid seal token — cannot unseal registry",
                     error_code="INVALID_SEAL_TOKEN",
@@ -223,8 +227,9 @@ class CapabilityRegistry:
         AEGISCapabilityError
             If the registry is frozen.
         """
-        self._check_frozen()
         with self._lock:
+            # BT-AUDIT-003: Freeze check inside lock to prevent TOCTOU.
+            self._check_frozen()
             if len(self._capabilities) >= self._MAX_CAPABILITIES:
                 raise AEGISCapabilityError(
                     f"Registry at capacity ({self._MAX_CAPABILITIES})",
@@ -242,8 +247,8 @@ class CapabilityRegistry:
         capability_id : str
             ID of the capability to unregister.
         """
-        self._check_frozen()
         with self._lock:
+            self._check_frozen()
             self._capabilities.pop(capability_id, None)
             for agent_caps in self._agent_capabilities.values():
                 agent_caps.discard(capability_id)
@@ -283,8 +288,8 @@ class CapabilityRegistry:
         AEGISCapabilityError
             If *capability_id* is not registered or registry is frozen.
         """
-        self._check_frozen()
         with self._lock:
+            self._check_frozen()
             if capability_id not in self._capabilities:
                 raise AEGISCapabilityError(
                     f"Cannot grant unknown capability '{capability_id}'.",
@@ -319,8 +324,8 @@ class CapabilityRegistry:
         AEGISCapabilityError
             If *capability_id* is not registered or registry is frozen.
         """
-        self._check_frozen()
         with self._lock:
+            self._check_frozen()
             if capability_id not in self._capabilities:
                 raise AEGISCapabilityError(
                     f"Cannot grant unknown capability '{capability_id}'.",
@@ -345,8 +350,8 @@ class CapabilityRegistry:
         capability_id : str
             The capability to revoke.
         """
-        self._check_frozen()
         with self._lock:
+            self._check_frozen()
             if agent_id in self._agent_capabilities:
                 self._agent_capabilities[agent_id].discard(capability_id)
 
@@ -372,8 +377,8 @@ class CapabilityRegistry:
         int
             The number of agents that had the capability revoked.
         """
-        self._check_frozen()
         with self._lock:
+            self._check_frozen()
             count = 0
             for agent_id in agent_ids:
                 if (
@@ -392,8 +397,8 @@ class CapabilityRegistry:
         agent_id : str
             The agent to revoke all capabilities from.
         """
-        self._check_frozen()
         with self._lock:
+            self._check_frozen()
             self._agent_capabilities.pop(agent_id, None)
 
     # ------------------------------------------------------------------

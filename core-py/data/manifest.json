@@ -1,0 +1,15 @@
+{
+  "$schema": "https://aegis-platform.net/schemas/data-manifest-v1.json",
+  "repository": "aegis-core",
+  "description": "Machine-readable data exports from the AEGIS governance runtime",
+  "exports": [
+    {
+      "id": "security-testing",
+      "path": "data/security-testing.json",
+      "description": "ATX-1/ATM-1 security testing coverage, findings, and hardening status",
+      "schema": "https://aegis-platform.net/schemas/security-testing-v1.json",
+      "generated_by": "scripts/generate_coverage_data.py",
+      "refresh": "Run after any security test changes"
+    }
+  ]
+}

@@ -373,7 +373,10 @@ class ToolProxy:
                 f"by governance policy."
             )
 
-        # Execute the async tool
+        # BT-AUDIT-005: Execute the async tool with depth tracking
+        # (was missing — sync call() tracked depth but async didn't).
+        with self._depth_lock:
+            self._current_call_depth += 1
         try:
             loop = asyncio.get_running_loop()
             if asyncio.iscoroutinefunction(fn):
@@ -414,6 +417,9 @@ class ToolProxy:
                     error=str(e),
                 )
             raise
+        finally:
+            with self._depth_lock:
+                self._current_call_depth -= 1
 
     # ------------------------------------------------------------------
     # Call history

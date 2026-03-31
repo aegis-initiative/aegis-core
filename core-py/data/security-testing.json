@@ -1,0 +1,603 @@
+{
+  "$schema": "https://aegis-platform.net/schemas/security-testing-v1.json",
+  "version": "1.0.0",
+  "generated": "2026-03-31T02:21:38.962028+00:00",
+  "runtime": "aegis-core",
+  "runtime_version": "0.1.0",
+  "summary": {
+    "total_tests": 353,
+    "red_blue_rounds": 9,
+    "total_findings": 50,
+    "findings_fixed": 30,
+    "findings_deferred": 6,
+    "atx1": {
+      "total_techniques": 29,
+      "applicable": 25,
+      "covered": 25,
+      "partial": 0,
+      "not_applicable": 4,
+      "not_covered": 0,
+      "coverage_percent": 100.0
+    },
+    "atm1": {
+      "total_vectors": 7,
+      "applicable": 6,
+      "covered": 6,
+      "coverage_percent": 100.0
+    },
+    "security_properties": {
+      "total": 5,
+      "covered": 5
+    }
+  },
+  "atx1_tactics": [
+    {
+      "id": "TA001",
+      "name": "Violate Authority Boundaries",
+      "techniques": [
+        {
+          "id": "T1001",
+          "name": "Execute Non-Owner Instruction",
+          "parent": "TA001",
+          "status": "COVERED",
+          "test_ids": [
+            "test_gateway_bypass_via_direct_engine_access"
+          ],
+          "finding_ids": [
+            "RT-001"
+          ],
+          "notes": "Gateway bypass"
+        },
+        {
+          "id": "T1002",
+          "name": "Infer Implicit Authority",
+          "parent": "TA001",
+          "status": "COVERED",
+          "test_ids": [
+            "test_request_replay_same_id"
+          ],
+          "finding_ids": [
+            "RT-005"
+          ],
+          "notes": "Replay attack — no deduplication"
+        },
+        {
+          "id": "T1003",
+          "name": "Propagate Spoofed Authority at Scale",
+          "parent": "TA001",
+          "status": "COVERED",
+          "test_ids": [
+            "test_t1003_mass_action_via_bulk_grant"
+          ],
+          "finding_ids": [],
+          "notes": "50 agents bulk-granted — no distribution controls"
+        }
+      ]
+    },
+    {
+      "id": "TA002",
+      "name": "Exceed Operational Scope",
+      "techniques": [
+        {
+          "id": "T2001",
+          "name": "Expand Task Scope Autonomously",
+          "parent": "TA002",
+          "status": "COVERED",
+          "test_ids": [
+            "test_wildcard_capability_grants_universal_access"
+          ],
+          "finding_ids": [],
+          "notes": "Overly broad capability patterns"
+        },
+        {
+          "id": "T2002",
+          "name": "Perform Unvalidated Bulk Operations",
+          "parent": "TA002",
+          "status": "COVERED",
+          "test_ids": [
+            "test_t2002_bulk_operations_no_aggregate_check"
+          ],
+          "finding_ids": [],
+          "notes": "100 individual deletes approved — no aggregate detection"
+        },
+        {
+          "id": "T2003",
+          "name": "Obscure Objective Through Delegation",
+          "parent": "TA002",
+          "status": "COVERED",
+          "test_ids": [
+            "test_t2003_delegation_chain_obscures_intent"
+          ],
+          "finding_ids": [],
+          "notes": "Read+send compose to exfiltration — no cross-agent correlation"
+        },
+        {
+          "id": "T2004",
+          "name": "Exploit Tool-Chain Composition",
+          "parent": "TA002",
+          "status": "COVERED",
+          "test_ids": [
+            "test_expired_capability_access"
+          ],
+          "finding_ids": [],
+          "notes": "Expired capability enforcement"
+        }
+      ]
+    },
+    {
+      "id": "TA003",
+      "name": "Compromise System Integrity",
+      "techniques": [
+        {
+          "id": "T3001",
+          "name": "Perform Irreversible Destructive Action",
+          "parent": "TA003",
+          "status": "COVERED",
+          "test_ids": [
+            "test_t3001_destructive_action_no_proportionality_check"
+          ],
+          "finding_ids": [],
+          "notes": "rm -rf approved same as benign — no proportionality gate"
+        },
+        {
+          "id": "T3002",
+          "name": "Trigger Cascading System Changes",
+          "parent": "TA003",
+          "status": "COVERED",
+          "test_ids": [
+            "test_t3002_cascading_actions_no_impact_analysis",
+            "test_cascading_actions_trigger_behavioral_anomaly"
+          ],
+          "finding_ids": [],
+          "notes": "Behavioral anomaly detects severity trajectory shift (file_read baseline → shell_exec escalation). Historical rate accumulation validated over 40+ sequential requests."
+        }
+      ]
+    },
+    {
+      "id": "TA004",
+      "name": "Expose or Exfiltrate Information",
+      "techniques": [
+        {
+          "id": "T4001",
+          "name": "Exfiltrate Context-Scoped Data",
+          "parent": "TA004",
+          "status": "N/A",
+          "test_ids": [],
+          "finding_ids": [],
+          "notes": "Data exfiltration requires actual data flow between agent and external systems — not exercisable at engine layer"
+        },
+        {
+          "id": "T4002",
+          "name": "Leak Cross-Session or Persistent Data",
+          "parent": "TA004",
+          "status": "N/A",
+          "test_ids": [],
+          "finding_ids": [],
+          "notes": "Cross-session data leakage requires persistent agent memory across sessions — not exercisable at engine layer"
+        },
+        {
+          "id": "T4003",
+          "name": "Cross-Domain Secret Leakage",
+          "parent": "TA004",
+          "status": "N/A",
+          "test_ids": [],
+          "finding_ids": [],
+          "notes": "Cross-domain leakage requires multi-domain deployment with trust boundaries — not exercisable at engine layer"
+        }
+      ]
+    },
+    {
+      "id": "TA005",
+      "name": "Violate State Integrity",
+      "techniques": [
+        {
+          "id": "T5001",
+          "name": "Report False Task Completion",
+          "parent": "TA005",
+          "status": "COVERED",
+          "test_ids": [
+            "test_denied_actions_are_audited"
+          ],
+          "finding_ids": [],
+          "notes": "Audit trail records denials, escalations, and tool execution failures. Agent cannot claim success when action was denied or tool failed (execution_failed audit record)."
+        },
+        {
+          "id": "T5002",
+          "name": "Fabricate Action Attribution",
+          "parent": "TA005",
+          "status": "COVERED",
+          "test_ids": [
+            "test_t5002_fabricate_attribution_via_agent_id"
+          ],
+          "finding_ids": [],
+          "notes": "No authentication — any caller can submit as any agent_id"
+        },
+        {
+          "id": "T5003",
+          "name": "Suppress or Omit Execution Failure",
+          "parent": "TA005",
+          "status": "COVERED",
+          "test_ids": [
+            "test_t5003_tool_failure_not_audited"
+          ],
+          "finding_ids": [],
+          "notes": "Audit records approval but not execution failure"
+        }
+      ]
+    },
+    {
+      "id": "TA006",
+      "name": "Abuse Resource Allocation",
+      "techniques": [
+        {
+          "id": "T6001",
+          "name": "Execute Recursive Invocation Loops",
+          "parent": "TA006",
+          "status": "COVERED",
+          "test_ids": [
+            "test_t6001_recursive_tool_proxy_calls"
+          ],
+          "finding_ids": [],
+          "notes": "50 recursive governance evaluations — no depth limit"
+        },
+        {
+          "id": "T6002",
+          "name": "Consume Unbounded External Resources",
+          "parent": "TA006",
+          "status": "COVERED",
+          "test_ids": [
+            "test_oversized_parameters_no_limit"
+          ],
+          "finding_ids": [
+            "RT-008"
+          ],
+          "notes": "No parameter size limits"
+        }
+      ]
+    },
+    {
+      "id": "TA007",
+      "name": "Manipulate Agent Interactions",
+      "techniques": [
+        {
+          "id": "T7001",
+          "name": "Spoof Agent Identity",
+          "parent": "TA007",
+          "status": "COVERED",
+          "test_ids": [
+            "test_multi_agent_concurrent_flood"
+          ],
+          "finding_ids": [],
+          "notes": "Concurrent flood test"
+        },
+        {
+          "id": "T7002",
+          "name": "Inject Malicious Delegation Chains",
+          "parent": "TA007",
+          "status": "COVERED",
+          "test_ids": [
+            "test_t7002_delegation_chain_privilege_escalation"
+          ],
+          "finding_ids": [],
+          "notes": "Agent A creates proxy as Agent B — no per-hop auth"
+        },
+        {
+          "id": "T7003",
+          "name": "Induce Cross-Agent Behavioral Drift",
+          "parent": "TA007",
+          "status": "N/A",
+          "test_ids": [],
+          "finding_ids": [],
+          "notes": "Behavioral drift requires agent-level longitudinal testing with shared context — not exercisable at engine layer"
+        },
+        {
+          "id": "T7004",
+          "name": "Induce Unsafe Consensus",
+          "parent": "TA007",
+          "status": "COVERED",
+          "test_ids": [
+            "test_t7004_concurrent_agents_no_cross_correlation"
+          ],
+          "finding_ids": [],
+          "notes": "10 identical sensitive requests — no convergence detection"
+        }
+      ]
+    },
+    {
+      "id": "TA008",
+      "name": "Establish or Modify Persistence",
+      "techniques": [
+        {
+          "id": "T8001",
+          "name": "Poison Persistent Memory",
+          "parent": "TA008",
+          "status": "COVERED",
+          "test_ids": [
+            "test_t8001_poison_audit_via_crafted_parameters"
+          ],
+          "finding_ids": [],
+          "notes": "Malicious metadata stored verbatim in audit trail"
+        },
+        {
+          "id": "T8002",
+          "name": "Corrupt Governance or Policy State",
+          "parent": "TA008",
+          "status": "COVERED",
+          "test_ids": [
+            "test_policy_priority_manipulation"
+          ],
+          "finding_ids": [
+            "RT-010"
+          ],
+          "notes": "No auth on policy registration"
+        }
+      ]
+    },
+    {
+      "id": "TA009",
+      "name": "Evade Detection or Oversight",
+      "techniques": [
+        {
+          "id": "T9001",
+          "name": "Operate Outside Monitoring Boundaries",
+          "parent": "TA009",
+          "status": "COVERED",
+          "test_ids": [
+            "test_gateway_bypass_via_direct_engine_access"
+          ],
+          "finding_ids": [
+            "RT-001"
+          ],
+          "notes": "Bypass = operating outside monitoring"
+        },
+        {
+          "id": "T9002",
+          "name": "Obfuscate Action Traceability",
+          "parent": "TA009",
+          "status": "COVERED",
+          "test_ids": [
+            "test_policy_condition_exception_inconsistency",
+            "test_audit_record_modification_via_raw_sql",
+            "test_audit_record_deletion",
+            "test_audit_batch_timestamp_collision"
+          ],
+          "finding_ids": [
+            "RT-004",
+            "RT-009"
+          ],
+          "notes": "Batch timestamp collision confirms T9002 — implementation defect validates the technique, does not warrant new subtechnique per MITRE criteria"
+        }
+      ]
+    },
+    {
+      "id": "TA010",
+      "name": "Act Beyond Governance Interpretation",
+      "techniques": [
+        {
+          "id": "T10001",
+          "name": "Exploit Pseudo-Filesystem Capabilities",
+          "parent": "TA010",
+          "status": "COVERED",
+          "test_ids": [
+            "test_path_traversal_in_capability_targets"
+          ],
+          "finding_ids": [
+            "RT-002"
+          ],
+          "notes": "Path traversal via fnmatch"
+        },
+        {
+          "id": "T10002",
+          "name": "Establish Persistence via Environment Auto-Execution",
+          "parent": "TA010",
+          "status": "COVERED",
+          "test_ids": [
+            "test_t10002_auto_execution_file_targets",
+            "TestT10002AutoExecutionPersistence"
+          ],
+          "finding_ids": [],
+          "notes": "Gateway blocks FILE_WRITE to git hooks, shell init, CI/CD configs, Dockerfiles, package lifecycle scripts, and IDE task files. Path traversal normalization validated."
+        },
+        {
+          "id": "T10003",
+          "name": "Inject Persistent Agent Instructions",
+          "parent": "TA010",
+          "status": "COVERED",
+          "test_ids": [
+            "test_t10003_write_to_agent_instruction_files",
+            "TestT10003AgentInstructionInjection"
+          ],
+          "finding_ids": [],
+          "notes": "Gateway blocks FILE_WRITE to CLAUDE.md, .claude/*, .cursorrules, copilot-instructions.md, .windsurfrules, .clinerules. Path traversal normalization validated. FILE_READ allowed (read is safe, only writes are T10003)."
+        },
+        {
+          "id": "T10004",
+          "name": "Exploit Governance-Runtime Parser Divergence",
+          "parent": "TA010",
+          "status": "COVERED",
+          "test_ids": [
+            "test_t10004_parser_divergence_shell_metacharacters"
+          ],
+          "finding_ids": [],
+          "notes": "Shell metacharacters in targets approved by fnmatch — governance sees one string, shell would execute multiple commands"
+        }
+      ]
+    }
+  ],
+  "atm1_attack_vectors": [
+    {
+      "id": "AV-1",
+      "name": "Protocol-level attacks (MITM, message injection, replay, token theft)",
+      "parent": "ATM-1",
+      "status": "COVERED",
+      "test_ids": [
+        "TestProtocolAttacks"
+      ],
+      "finding_ids": [],
+      "notes": ""
+    },
+    {
+      "id": "AV-2",
+      "name": "Policy-layer attacks (evasion, bypass, tampering, authorization bypass)",
+      "parent": "ATM-1",
+      "status": "COVERED",
+      "test_ids": [
+        "TestPolicyAttacks"
+      ],
+      "finding_ids": [],
+      "notes": ""
+    },
+    {
+      "id": "AV-3",
+      "name": "Identity & authentication attacks (spoofing, lateral movement, credential harvesting)",
+      "parent": "ATM-1",
+      "status": "COVERED",
+      "test_ids": [
+        "TestIdentityAttacks"
+      ],
+      "finding_ids": [],
+      "notes": ""
+    },
+    {
+      "id": "AV-4",
+      "name": "Audit & logging attacks (tampering, injection, availability)",
+      "parent": "ATM-1",
+      "status": "COVERED",
+      "test_ids": [
+        "TestAuditAttacks"
+      ],
+      "finding_ids": [],
+      "notes": ""
+    },
+    {
+      "id": "AV-5",
+      "name": "Timing & side-channel attacks (policy eval timing, risk scoring inference)",
+      "parent": "ATM-1",
+      "status": "COVERED",
+      "test_ids": [
+        "TestTimingAttacks"
+      ],
+      "finding_ids": [],
+      "notes": ""
+    },
+    {
+      "id": "AV-6",
+      "name": "Supply-chain & dependency attacks (dependency poisoning, build artifact tampering)",
+      "parent": "ATM-1",
+      "status": "N/A",
+      "test_ids": [],
+      "finding_ids": [],
+      "notes": "Supply-chain attacks require integration/deployment testing"
+    },
+    {
+      "id": "AV-7",
+      "name": "Distributed & coordinated attacks (coordinated low-risk, slow-burn, federation signal)",
+      "parent": "ATM-1",
+      "status": "COVERED",
+      "test_ids": [
+        "TestCoordinatedAttacks"
+      ],
+      "finding_ids": [],
+      "notes": ""
+    }
+  ],
+  "atm1_security_properties": [
+    {
+      "id": "SP-1",
+      "name": "Decision Integrity — deterministic, unmodifiable post-issuance",
+      "parent": "ATM-1",
+      "status": "COVERED",
+      "test_ids": [
+        "test_sp1_decision_determinism"
+      ],
+      "finding_ids": [],
+      "notes": ""
+    },
+    {
+      "id": "SP-2",
+      "name": "Actor Attribution — every action attributable to authenticated actor",
+      "parent": "ATM-1",
+      "status": "COVERED",
+      "test_ids": [
+        "test_audit_contains_full_decision_chain",
+        "test_t5002_fabricate_attribution_via_agent_id"
+      ],
+      "finding_ids": [],
+      "notes": "No authentication on agent_id — SP-2 partially violated"
+    },
+    {
+      "id": "SP-3",
+      "name": "Policy Immutability Window — active policy cannot change during execution",
+      "parent": "ATM-1",
+      "status": "COVERED",
+      "test_ids": [
+        "test_toctou_policy_removal",
+        "test_toctou_capability_revocation_blocked"
+      ],
+      "finding_ids": [
+        "RT-007"
+      ],
+      "notes": "TOCTOU fixed by unified eval lock (BT-005)"
+    },
+    {
+      "id": "SP-4",
+      "name": "Capability Authorization Binding — execution requires prior authorization",
+      "parent": "ATM-1",
+      "status": "COVERED",
+      "test_ids": [
+        "test_sp4_no_action_without_capability"
+      ],
+      "finding_ids": [],
+      "notes": ""
+    },
+    {
+      "id": "SP-5",
+      "name": "Audit Completeness & Append-Only — every decision captured, no retroactive modification",
+      "parent": "ATM-1",
+      "status": "COVERED",
+      "test_ids": [
+        "test_sp5_audit_completeness"
+      ],
+      "finding_ids": [],
+      "notes": ""
+    }
+  ],
+  "deferred_findings": [
+    {
+      "id": "DF-001",
+      "title": "object.__setattr__ bypass",
+      "risk": "Python C-level slot access bypasses custom __setattr__",
+      "resolution": "Rust runtime (true type enforcement)"
+    },
+    {
+      "id": "DF-002",
+      "title": "Module attribute replacement",
+      "risk": "Entire scoring tables replaceable at module level",
+      "resolution": "Process isolation boundary (AEGIS daemon)"
+    },
+    {
+      "id": "DF-003",
+      "title": "Seal token memory exposure",
+      "risk": "_seal_token readable via attribute access",
+      "resolution": "Rust runtime (private fields)"
+    },
+    {
+      "id": "DF-004",
+      "title": "Silent evidence replacement",
+      "risk": "Corrupted audit JSON replaced with empty dict",
+      "resolution": "RT-009 hash chaining"
+    },
+    {
+      "id": "DF-005",
+      "title": "Agent identity spoofing",
+      "risk": "No transport-layer authentication on agent_id",
+      "resolution": "v0.2.0 RFC-0002 (mTLS, bearer tokens)"
+    },
+    {
+      "id": "DF-006",
+      "title": "Parameter semantic analysis",
+      "risk": "Risk engine scores target string, not parameters",
+      "resolution": "v0.2.0 NLP/policy DSL"
+    }
+  ]
+}

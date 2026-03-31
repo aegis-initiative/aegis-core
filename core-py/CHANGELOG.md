@@ -6,6 +6,38 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ---
 
+# [0.1.1b2] — 2026-03-30
+
+**Status:** BETA — Independent adversarial hardening pass
+
+## Added
+
+- **ATX-1 coverage completion tests** — promotes T3002, T5001, T10002, T10003 from PARTIAL to COVERED (15 new tests)
+- **Security testing report** — `SECURITY_TESTING.md` documenting methodology, results, and accepted risks
+- **Machine-readable coverage data** — `data/security-testing.json` consumable for downstream sites
+- **Data manifest** — `data/manifest.json` for cross-repo data discovery
+- **Coverage export** — `CoverageTracker.to_dict()` and `scripts/generate_coverage_data.py`
+
+## Security Hardening (BT-AUDIT-001 through BT-AUDIT-008)
+
+- **BT-AUDIT-001**: Shell redirect detection — added `<` and `>` to metachar pattern
+- **BT-AUDIT-002**: Immutable sensitive path patterns — gateway `list` converted to `tuple`
+- **BT-AUDIT-003**: TOCTOU prevention — freeze checks moved inside locks (7 methods across capability_registry + policy_engine)
+- **BT-AUDIT-004**: Timing-safe seal tokens — `hmac.compare_digest` on both registries
+- **BT-AUDIT-005**: Async depth tracking — `async_call` now tracks recursion depth (was missing)
+- **BT-AUDIT-006**: Reason sanitization — capability denial no longer leaks agent_id or target
+- **BT-AUDIT-007**: Audit resilience — `_row_to_record` handles corrupted JSON gracefully
+- **BT-AUDIT-008**: Iterative URL decoding — defeats double/triple percent-encoding evasion
+
+## Stats
+
+- 353 tests, all passing
+- ATX-1: 25/25 applicable (100%)
+- ATM-1: 6/6 applicable (100%)
+- 9 rounds of red/blue team testing across two independent sessions
+
+---
+
 # [0.1.1b1] — 2026-03-30
 
 **Status:** BETA — Security-hardened reference implementation

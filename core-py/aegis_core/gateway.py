@@ -53,12 +53,15 @@ _MAX_PARAMETERS_SIZE_BYTES = 1_048_576
 # If a SHELL_EXEC target contains these, it should be ESCALATED because
 # governance evaluates the string as a single target, but a shell would
 # parse the metacharacters as command separators or operators.
-_SHELL_METACHAR_PATTERN = re.compile(r'[;|&`$()]|\n|\r')
+# BT-AUDIT-001: Added > and < (shell redirections) — "echo payload > /etc/passwd"
+# bypasses FILE_WRITE detection because action_type is SHELL_EXEC.
+_SHELL_METACHAR_PATTERN = re.compile(r'[;|&`$()<>]|\n|\r')
 
 # RT-022 / T10002 + RT-023 / T10003: Sensitive paths that require
 # escalation for FILE_WRITE actions. These are files that the execution
 # environment auto-executes or that define agent behavior.
-_SENSITIVE_PATH_PATTERNS: list[str] = [
+# BT-AUDIT-002: Immutable tuple prevents runtime mutation.
+_SENSITIVE_PATH_PATTERNS: tuple[str, ...] = (
     # Git hooks (T10002)
     ".git/hooks/*",
     # Shell init (T10002)
@@ -77,7 +80,7 @@ _SENSITIVE_PATH_PATTERNS: list[str] = [
     ".github/copilot-instructions.md",
     ".windsurfrules",
     ".clinerules",
-]
+)
 
 
 class GovernanceGateway:
