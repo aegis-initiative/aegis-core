@@ -381,7 +381,9 @@ class TestIdentityAttacks:
     @pytest.mark.atm1(attack_vector="AV-3")
     @pytest.mark.atx1(technique_id="T1001")
     def test_bulk_grant_escalation(self, configured_runtime: AEGISRuntime):
-        """Bulk grant can escalate many agents simultaneously."""
+        """RT-011 / T1003 BLUE: bulk_grant rejects oversized batches."""
+        from aegis_core.exceptions import AEGISCapabilityError
+
         registry = configured_runtime.capabilities
 
         admin_cap = make_capability(
@@ -392,10 +394,15 @@ class TestIdentityAttacks:
         )
         registry.register(admin_cap)
 
-        # RED TEAM FINDING: bulk_grant has no authorization either
+        # BLUE TEAM FIX: bulk_grant now enforces a batch size limit
         agents = [f"agent-{i}" for i in range(100)]
-        count = registry.bulk_grant(agents, "cap-admin-bulk")
-        assert count == 100, "100 agents escalated in a single call"
+        with pytest.raises(AEGISCapabilityError, match="exceeds limit"):
+            registry.bulk_grant(agents, "cap-admin-bulk")
+
+        # Verify that grants within the limit still work
+        small_batch = [f"agent-{i}" for i in range(50)]
+        count = registry.bulk_grant(small_batch, "cap-admin-bulk")
+        assert count == 50
 
     @pytest.mark.atm1(attack_vector="AV-3")
     def test_agent_id_boundary_values(self, configured_runtime: AEGISRuntime):
@@ -708,9 +715,15 @@ class TestSecurityPropertyViolations:
 
     @pytest.mark.security_property(sp_id="SP-1")
     def test_sp1_decision_determinism(self, configured_runtime: AEGISRuntime):
-        """SP-1: Same request shape + policies must produce same decision."""
+        """SP-1: Same request shape + policies must produce same decision.
+
+        Note: RT-012 aggregate controls intentionally escalate after a
+        per-agent threshold.  We test determinism within that window.
+        """
+        threshold = configured_runtime._decision_engine._aggregate_threshold
+        count = min(threshold, 20)
         decisions = []
-        for _ in range(50):
+        for _ in range(count):
             # Each request gets a unique request_id (replay protection)
             # but identical agent_id, action, and context
             request = make_request(agent_id="test-agent", target="test-target")

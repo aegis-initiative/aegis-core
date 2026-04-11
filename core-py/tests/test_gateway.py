@@ -314,6 +314,11 @@ class TestConcurrencyAndPerformance:
 
     def test_submission_load_smoke(self, runtime):
         """Performance smoke: a small request burst should complete quickly."""
+        # Raise rate limit and aggregate threshold — this test measures
+        # latency, not security controls (those are tested separately).
+        runtime._gateway._rate_limit = 1000
+        runtime._decision_engine._aggregate_threshold = 1000
+
         start = time.perf_counter()
         n = 200
         for i in range(n):

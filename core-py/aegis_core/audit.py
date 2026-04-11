@@ -16,7 +16,10 @@ Design principles
 
 from __future__ import annotations
 
+import hashlib
+import hmac
 import json
+import secrets
 import sqlite3
 import threading
 import uuid
@@ -69,6 +72,8 @@ class AuditRecord:
     policy_evaluations: list[dict[str, Any]]
     session_id: str
     timestamp: str
+    record_hmac: str = ""
+    prev_hash: str = ""
 
 
 class AuditSystem:
@@ -103,7 +108,9 @@ class AuditSystem:
             reason             TEXT NOT NULL,
             policy_evaluations TEXT NOT NULL,
             session_id         TEXT NOT NULL,
-            timestamp          TEXT NOT NULL
+            timestamp          TEXT NOT NULL,
+            record_hmac        TEXT NOT NULL DEFAULT '',
+            prev_hash          TEXT NOT NULL DEFAULT ''
         )
     """
 
@@ -119,18 +126,90 @@ class AuditSystem:
         "policy_evaluations",
         "session_id",
         "timestamp",
+        "record_hmac",
+        "prev_hash",
     )
 
     # M-4: Checkpoint WAL after this many writes to prevent unbounded growth
     _WAL_CHECKPOINT_INTERVAL = 1000
 
-    def __init__(self, db_path: str = ":memory:") -> None:
+    # RT-009 / T9002: Genesis hash for the first record in the chain
+    _GENESIS_HASH = "0" * 64
+
+    def __init__(self, db_path: str = ":memory:", *, hmac_key: bytes | None = None) -> None:
         self._conn = sqlite3.connect(db_path, check_same_thread=False)
         self._lock = threading.Lock()
         self._conn.execute("PRAGMA journal_mode=WAL;")
         self._conn.execute(self._CREATE_TABLE)
+        # RT-009: Add columns to existing tables that lack them (migration)
+        self._migrate_integrity_columns()
         self._conn.commit()
         self._write_count = 0
+
+        # RT-009 / T9002: HMAC key for audit record authentication
+        self._hmac_key = hmac_key or secrets.token_bytes(32)
+
+        # Cache the latest record's HMAC for hash chaining
+        self._last_hmac = self._load_last_hmac()
+
+    def _migrate_integrity_columns(self) -> None:
+        """Add record_hmac and prev_hash columns if they don't exist."""
+        cursor = self._conn.execute("PRAGMA table_info(audit_records)")
+        existing = {row[1] for row in cursor.fetchall()}
+        if "record_hmac" not in existing:
+            self._conn.execute(
+                "ALTER TABLE audit_records ADD COLUMN record_hmac TEXT NOT NULL DEFAULT ''"
+            )
+        if "prev_hash" not in existing:
+            self._conn.execute(
+                "ALTER TABLE audit_records ADD COLUMN prev_hash TEXT NOT NULL DEFAULT ''"
+            )
+
+    def _load_last_hmac(self) -> str:
+        """Load the HMAC of the most recent record for chain continuity."""
+        cursor = self._conn.execute(
+            "SELECT record_hmac FROM audit_records ORDER BY rowid DESC LIMIT 1"
+        )
+        row = cursor.fetchone()
+        return row[0] if row and row[0] else self._GENESIS_HASH
+
+    def _compute_hmac(
+        self,
+        audit_id: str,
+        request_id: str,
+        agent_id: str,
+        action_type: str,
+        action_target: str,
+        action_parameters_json: str,
+        decision: str,
+        reason: str,
+        policy_evaluations_json: str,
+        session_id: str,
+        timestamp: str,
+        prev_hash: str,
+    ) -> str:
+        """Compute HMAC-SHA256 over the record's content fields.
+
+        The HMAC covers all data fields plus the previous record's hash,
+        forming a verifiable chain (RT-009 / T9002, ATM-1 DC-1).
+        """
+        payload = "|".join([
+            audit_id,
+            request_id,
+            agent_id,
+            action_type,
+            action_target,
+            action_parameters_json,
+            decision,
+            reason,
+            policy_evaluations_json,
+            session_id,
+            timestamp,
+            prev_hash,
+        ])
+        return hmac.new(
+            self._hmac_key, payload.encode("utf-8"), hashlib.sha256
+        ).hexdigest()
 
     # ------------------------------------------------------------------
     # Write
@@ -187,9 +266,19 @@ class AuditSystem:
         """
         audit_id = str(uuid.uuid4())
         timestamp = datetime.now(UTC).isoformat()
+        params_json = json.dumps(action_parameters)
+        evals_json = json.dumps(policy_evaluations)
 
         with self._lock:
             try:
+                # RT-009 / T9002: Chain to previous record's HMAC
+                prev_hash = self._last_hmac
+                record_hmac = self._compute_hmac(
+                    audit_id, request_id, agent_id, action_type,
+                    action_target, params_json, decision, reason,
+                    evals_json, session_id, timestamp, prev_hash,
+                )
+
                 self._conn.execute(
                     f"INSERT INTO audit_records ({', '.join(self._COLUMNS)}) "
                     f"VALUES ({', '.join(['?'] * len(self._COLUMNS))})",
@@ -199,15 +288,18 @@ class AuditSystem:
                         agent_id,
                         action_type,
                         action_target,
-                        json.dumps(action_parameters),
+                        params_json,
                         decision,
                         reason,
-                        json.dumps(policy_evaluations),
+                        evals_json,
                         session_id,
                         timestamp,
+                        record_hmac,
+                        prev_hash,
                     ),
                 )
                 self._conn.commit()
+                self._last_hmac = record_hmac
                 self._maybe_checkpoint()
             except sqlite3.Error as exc:
                 raise AEGISAuditError(
@@ -262,8 +354,20 @@ class AuditSystem:
             try:
                 # H-5: Explicit transaction for atomic batch insert.
                 # On failure, all records are rolled back — no partial state.
+                chain_hmac = self._last_hmac
                 self._conn.execute("BEGIN IMMEDIATE")
                 for audit_id, record_data in zip(audit_ids, records, strict=False):
+                    params_json = json.dumps(record_data["action_parameters"])
+                    evals_json = json.dumps(record_data["policy_evaluations"])
+                    prev_hash = chain_hmac
+                    record_hmac = self._compute_hmac(
+                        audit_id, record_data["request_id"],
+                        record_data["agent_id"], record_data["action_type"],
+                        record_data["action_target"], params_json,
+                        record_data["decision"], record_data["reason"],
+                        evals_json, record_data["session_id"],
+                        timestamp, prev_hash,
+                    )
                     self._conn.execute(
                         f"INSERT INTO audit_records ({', '.join(self._COLUMNS)}) "
                         f"VALUES ({', '.join(['?'] * len(self._COLUMNS))})",
@@ -273,15 +377,19 @@ class AuditSystem:
                             record_data["agent_id"],
                             record_data["action_type"],
                             record_data["action_target"],
-                            json.dumps(record_data["action_parameters"]),
+                            params_json,
                             record_data["decision"],
                             record_data["reason"],
-                            json.dumps(record_data["policy_evaluations"]),
+                            evals_json,
                             record_data["session_id"],
                             timestamp,
+                            record_hmac,
+                            prev_hash,
                         ),
                     )
+                    chain_hmac = record_hmac
                 self._conn.execute("COMMIT")
+                self._last_hmac = chain_hmac
             except sqlite3.Error as exc:
                 import contextlib
 
@@ -447,4 +555,83 @@ class AuditSystem:
             data["policy_evaluations"] = json.loads(data["policy_evaluations"])
         except (json.JSONDecodeError, TypeError):
             data["policy_evaluations"] = []
+        # Gracefully handle records from before integrity columns existed
+        data.setdefault("record_hmac", "")
+        data.setdefault("prev_hash", "")
         return AuditRecord(**data)
+
+    # ------------------------------------------------------------------
+    # Integrity verification (RT-009 / T9002)
+    # ------------------------------------------------------------------
+
+    def verify_chain(self, *, limit: int = 0) -> tuple[bool, list[str]]:
+        """Verify the cryptographic integrity of the audit chain.
+
+        Walks the audit trail in insertion order, recomputing each
+        record's HMAC and verifying that ``prev_hash`` matches the
+        preceding record's HMAC (hash chaining, ATM-1 DC-1).
+
+        Parameters
+        ----------
+        limit : int, optional
+            Maximum number of records to verify.  0 means all records.
+
+        Returns
+        -------
+        tuple[bool, list[str]]
+            ``(is_valid, violations)`` where ``is_valid`` is True if the
+            entire chain is intact, and ``violations`` is a list of
+            human-readable descriptions of any integrity failures.
+        """
+        violations: list[str] = []
+
+        with self._lock:
+            query = "SELECT * FROM audit_records ORDER BY rowid ASC"
+            if limit > 0:
+                query += f" LIMIT {limit}"
+            cursor = self._conn.execute(query)
+            rows = cursor.fetchall()
+
+        expected_prev = self._GENESIS_HASH
+
+        for row in rows:
+            data = dict(zip(self._COLUMNS, row, strict=False))
+            audit_id = data["id"]
+            stored_hmac = data.get("record_hmac", "")
+            stored_prev = data.get("prev_hash", "")
+
+            # Skip pre-integrity records (migration: empty HMAC)
+            if not stored_hmac:
+                continue
+
+            # Verify chain linkage
+            if stored_prev != expected_prev:
+                violations.append(
+                    f"Record {audit_id}: prev_hash mismatch — "
+                    f"expected {expected_prev[:16]}…, got {stored_prev[:16]}…"
+                )
+
+            # Recompute HMAC and compare
+            recomputed = self._compute_hmac(
+                data["id"],
+                data["request_id"],
+                data["agent_id"],
+                data["action_type"],
+                data["action_target"],
+                data["action_parameters"],  # still JSON string from DB
+                data["decision"],
+                data["reason"],
+                data["policy_evaluations"],  # still JSON string from DB
+                data["session_id"],
+                data["timestamp"],
+                stored_prev,
+            )
+
+            if not hmac.compare_digest(recomputed, stored_hmac):
+                violations.append(
+                    f"Record {audit_id}: HMAC mismatch — record has been tampered with"
+                )
+
+            expected_prev = stored_hmac
+
+        return (len(violations) == 0, violations)

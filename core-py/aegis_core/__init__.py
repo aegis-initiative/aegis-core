@@ -51,6 +51,7 @@ from .protocol import (
     AGPResponse,
     Decision,
 )
+from .mcp_server import AEGISMCPServer
 from .runtime import AEGISRuntime
 from .tool_proxy import ToolProxy
 
@@ -58,6 +59,7 @@ __all__ = [
     "AEGISAuditError",
     "AEGISCapabilityError",
     "AEGISError",
+    "AEGISMCPServer",
     "AEGISPolicyError",
     "AEGISRuntime",
     "AEGISValidationError",
