@@ -139,12 +139,23 @@ class CapabilityRegistry:
     # M-9: Limit registered capabilities to prevent O(n*m) DoS
     _MAX_CAPABILITIES = 10_000
 
-    def __init__(self) -> None:
+    # RT-011 / T1003: Maximum agents in a single bulk_grant call
+    _DEFAULT_BULK_GRANT_LIMIT = 50
+
+    def __init__(self, *, bulk_grant_limit: int | None = None) -> None:
         self._capabilities: dict[str, Capability] = {}
         self._agent_capabilities: dict[str, set[str]] = {}
         self._lock = threading.Lock()
         self._frozen = False
         self._seal_token: str | None = None
+        # RT-011 / T1003: Configurable bulk grant batch limit
+        self._bulk_grant_limit = (
+            bulk_grant_limit
+            if bulk_grant_limit is not None
+            else self._DEFAULT_BULK_GRANT_LIMIT
+        )
+        # RT-011: Callbacks notified when bulk grant exceeds alert threshold
+        self._bulk_grant_listeners: list[Any] = []
 
     # ------------------------------------------------------------------
     # Freeze / unseal (RT-006 / T8002, SP-3, C-2)
@@ -300,6 +311,15 @@ class CapabilityRegistry:
                 )
             self._agent_capabilities.setdefault(agent_id, set()).add(capability_id)
 
+    def on_bulk_grant(self, callback: Any) -> None:
+        """Register a listener notified on bulk grant operations.
+
+        The callback receives ``(agent_ids, capability_id, count)``
+        when a bulk grant exceeds the alert threshold (>= 10 agents).
+        Use this to wire up audit alerts (RT-011 / T1003).
+        """
+        self._bulk_grant_listeners.append(callback)
+
     def bulk_grant(
         self,
         agent_ids: list[str],
@@ -309,6 +329,9 @@ class CapabilityRegistry:
 
         This is more efficient than calling grant() multiple times, as it
         performs all assignments in a single atomic transaction.
+
+        RT-011 / T1003: Enforces a configurable batch size limit to
+        prevent mass privilege escalation in a single call.
 
         Parameters
         ----------
@@ -325,8 +348,19 @@ class CapabilityRegistry:
         Raises
         ------
         AEGISCapabilityError
-            If *capability_id* is not registered or registry is frozen.
+            If *capability_id* is not registered, registry is frozen,
+            or the batch exceeds the bulk grant limit.
         """
+        # RT-011 / T1003: Reject oversized bulk grants
+        if len(agent_ids) > self._bulk_grant_limit:
+            raise AEGISCapabilityError(
+                f"Bulk grant to {len(agent_ids)} agents exceeds limit of "
+                f"{self._bulk_grant_limit} (RT-011 / T1003). "
+                f"Split into smaller batches or increase the limit.",
+                error_code=errors.CAP_BULK_GRANT_LIMIT,
+                cause=capability_id,
+            )
+
         with self._lock:
             self._check_frozen()
             if capability_id not in self._capabilities:
@@ -343,7 +377,16 @@ class CapabilityRegistry:
                 if capability_id not in self._agent_capabilities[agent_id]:
                     self._agent_capabilities[agent_id].add(capability_id)
                     count += 1
-            return count
+
+        # RT-011: Fire audit alert for significant bulk grants
+        if len(agent_ids) >= 10:
+            for listener in self._bulk_grant_listeners:
+                try:
+                    listener(agent_ids, capability_id, count)
+                except Exception:
+                    pass  # Listeners must not break the grant operation
+
+        return count
 
     def revoke(self, agent_id: str, capability_id: str) -> None:
         """Revoke *capability_id* from *agent_id* (no-op if not held).

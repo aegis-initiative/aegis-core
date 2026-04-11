@@ -161,3 +161,21 @@ AUD_PERSIST_ERROR = "AEGIS-AUD-001"
 
 AUD_BATCH_PERSIST_ERROR = "AEGIS-AUD-002"
 """Failed to persist a batch of audit records to the database."""
+
+AUD_INTEGRITY_VIOLATION = "AEGIS-AUD-003"
+"""Audit chain integrity verification failed (RT-009 / T9002)."""
+
+# ---- Gateway errors ------------------------------------------------------
+
+GW_RATE_LIMIT_EXCEEDED = "AEGIS-GW-001"
+"""Per-agent request rate limit exceeded (RT-011 / T1003)."""
+
+# ---- Capability errors (distribution controls) ---------------------------
+
+CAP_BULK_GRANT_LIMIT = "AEGIS-CAP-005"
+"""Bulk grant exceeds maximum batch size (RT-011 / T1003)."""
+
+# ---- Decision engine errors ----------------------------------------------
+
+DEC_AGGREGATE_ESCALATION = "AEGIS-DEC-001"
+"""Aggregate action volume triggered escalation (RT-012 / T2002)."""

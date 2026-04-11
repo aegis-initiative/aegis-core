@@ -25,6 +25,7 @@ instrumentation and monitoring of governance decisions.
 
 from __future__ import annotations
 
+import collections
 import threading
 import time
 from dataclasses import dataclass
@@ -100,12 +101,19 @@ class DecisionEngine:
         If None, a default RiskEngine is created using the audit system.
     """
 
+    # RT-012 / T2002: Default aggregate action thresholds
+    _DEFAULT_AGGREGATE_WINDOW_SECONDS = 60.0
+    _DEFAULT_AGGREGATE_THRESHOLD = 20
+
     def __init__(
         self,
         capability_registry: CapabilityRegistry,
         policy_engine: PolicyEngine,
         audit_system: AuditSystem,
         risk_engine: RiskEngine | None = None,
+        *,
+        aggregate_window: float | None = None,
+        aggregate_threshold: int | None = None,
     ) -> None:
         self._capabilities = capability_registry
         self._policies = policy_engine
@@ -119,6 +127,22 @@ class DecisionEngine:
         # H-2: Thread-safe metrics
         self._metrics_lock = threading.Lock()
         self._metrics = DecisionMetrics()
+
+        # RT-012 / T2002: Aggregate impact assessment — per-agent sliding
+        # window tracking.  When an agent's action count within the window
+        # exceeds the threshold, the decision is escalated.
+        self._aggregate_window = (
+            aggregate_window
+            if aggregate_window is not None
+            else self._DEFAULT_AGGREGATE_WINDOW_SECONDS
+        )
+        self._aggregate_threshold = (
+            aggregate_threshold
+            if aggregate_threshold is not None
+            else self._DEFAULT_AGGREGATE_THRESHOLD
+        )
+        # agent_id -> deque of timestamps (monotonic)
+        self._agent_action_times: dict[str, collections.deque[float]] = {}
 
     # ------------------------------------------------------------------
     # Structural validation (defense-in-depth, RT-001)
@@ -321,6 +345,30 @@ class DecisionEngine:
                         f"exceeds confirmation threshold "
                         f"({self._risk.require_confirmation_threshold}). "
                         f"{risk_assessment.explanation}"
+                    )
+
+            # ----------------------------------------------------------
+            # Stage 4: Aggregate impact assessment (RT-012 / T2002)
+            # ----------------------------------------------------------
+            if decision in (Decision.APPROVED, Decision.REQUIRE_CONFIRMATION):
+                now = time.monotonic()
+                cutoff = now - self._aggregate_window
+                agent_times = self._agent_action_times.setdefault(
+                    request.agent_id, collections.deque()
+                )
+                # Evict entries outside the sliding window
+                while agent_times and agent_times[0] < cutoff:
+                    agent_times.popleft()
+                agent_times.append(now)
+
+                if len(agent_times) > self._aggregate_threshold:
+                    decision = Decision.ESCALATE
+                    reason = (
+                        f"Aggregate impact: {len(agent_times)} actions "
+                        f"within {self._aggregate_window}s window exceeds "
+                        f"threshold of {self._aggregate_threshold} "
+                        f"(RT-012 / T2002). Individual actions may be "
+                        f"valid but aggregate pattern is destructive."
                     )
 
         # ------------------------------------------------------------------

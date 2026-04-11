@@ -38,6 +38,7 @@ import fnmatch
 import json
 import re
 import threading
+import time
 
 from . import errors
 from .decision_engine import DecisionEngine
@@ -109,13 +110,29 @@ class GovernanceGateway:
     # RT-005 / T1002: Maximum number of recent request IDs to track
     _REPLAY_WINDOW_SIZE = 10_000
 
-    def __init__(self, decision_engine: DecisionEngine) -> None:
+    # RT-011 / T1003: Default per-agent rate limit
+    _DEFAULT_RATE_LIMIT = 100  # max requests per window
+    _DEFAULT_RATE_WINDOW = 60.0  # seconds
+
+    def __init__(
+        self,
+        decision_engine: DecisionEngine,
+        *,
+        rate_limit: int | None = None,
+        rate_window: float | None = None,
+    ) -> None:
         self._engine = decision_engine
         # RT-005 / T1002: Bounded deque of recently seen request_ids
         self._seen_request_ids: collections.deque[str] = collections.deque(
             maxlen=self._REPLAY_WINDOW_SIZE
         )
         self._replay_lock = threading.Lock()
+
+        # RT-011 / T1003: Per-agent sliding window rate limiter
+        self._rate_limit = rate_limit if rate_limit is not None else self._DEFAULT_RATE_LIMIT
+        self._rate_window = rate_window if rate_window is not None else self._DEFAULT_RATE_WINDOW
+        self._agent_request_times: dict[str, collections.deque[float]] = {}
+        self._rate_lock = threading.Lock()
 
     def submit(self, request: AGPRequest) -> AGPResponse:
         """Submit a governance request.
@@ -138,6 +155,7 @@ class GovernanceGateway:
         """
         self._validate(request)
         self._check_replay(request.request_id)
+        self._check_rate_limit(request.agent_id)
         self._check_dangerous_patterns(request)
         return self._engine._evaluate(request)
 
@@ -157,6 +175,43 @@ class GovernanceGateway:
                     cause="request.request_id",
                 )
             self._seen_request_ids.append(request_id)
+
+    # ------------------------------------------------------------------
+    # Rate limiting (RT-011 / T1003)
+    # ------------------------------------------------------------------
+
+    def _check_rate_limit(self, agent_id: str) -> None:
+        """Enforce per-agent request rate limits (RT-011 / T1003).
+
+        Uses a sliding window to track request timestamps per agent.
+        If the number of requests within the window exceeds the
+        configured limit, the request is rejected.
+
+        Raises
+        ------
+        AEGISValidationError
+            If the agent has exceeded the rate limit.
+        """
+        now = time.monotonic()
+        cutoff = now - self._rate_window
+
+        with self._rate_lock:
+            times = self._agent_request_times.setdefault(
+                agent_id, collections.deque()
+            )
+            # Evict entries outside the sliding window
+            while times and times[0] < cutoff:
+                times.popleft()
+
+            if len(times) >= self._rate_limit:
+                raise AEGISValidationError(
+                    f"Agent '{agent_id}' exceeded rate limit of "
+                    f"{self._rate_limit} requests per "
+                    f"{self._rate_window}s window (RT-011 / T1003)",
+                    error_code=errors.GW_RATE_LIMIT_EXCEEDED,
+                    cause="request.agent_id",
+                )
+            times.append(now)
 
     # ------------------------------------------------------------------
     # Security pattern checks (RT-021 / T10004, RT-022 / T10002, RT-023 / T10003)

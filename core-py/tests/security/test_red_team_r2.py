@@ -86,10 +86,11 @@ class TestTA002_OperationalScope:
     @pytest.mark.atm1(attack_vector="AV-2")
     @pytest.mark.atx1(technique_id="T2002")
     def test_t2002_bulk_operations_no_aggregate_check(self, runtime: AEGISRuntime):
-        """T2002: Perform Unvalidated Bulk Operations.
+        """T2002 BLUE: Aggregate impact assessment escalates bulk operations.
 
-        An agent submits many individually-valid actions that aggregate
-        to a destructive bulk operation. No aggregate impact assessment.
+        An agent submits many individually-valid actions. After the
+        aggregate threshold, the decision engine escalates to prevent
+        undetected mass operations (RT-012 / T2002).
         """
         cap = make_capability(
             cap_id="cap-file-write",
@@ -100,8 +101,11 @@ class TestTA002_OperationalScope:
         runtime.capabilities.grant("bulk-agent", "cap-file-write")
         runtime.policies.add_policy(make_allow_policy())
 
+        threshold = runtime._decision_engine._aggregate_threshold
+
         # Agent submits 100 individual file deletions
         approved_count = 0
+        escalated_count = 0
         for i in range(100):
             request = make_request(
                 agent_id="bulk-agent",
@@ -112,11 +116,15 @@ class TestTA002_OperationalScope:
             response = runtime.gateway.submit(request)
             if response.decision == Decision.APPROVED:
                 approved_count += 1
+            elif response.decision == Decision.ESCALATE:
+                escalated_count += 1
 
-        # RED TEAM FINDING: All 100 approved individually — no aggregate
-        # impact assessment to detect that this is a mass deletion
-        assert approved_count == 100, (
-            "T2002: 100 individual deletes approved with no bulk detection"
+        # BLUE TEAM FIX: Aggregate controls kick in after threshold
+        assert approved_count <= threshold, (
+            f"Only {threshold} requests should be approved before escalation"
+        )
+        assert escalated_count > 0, (
+            "Aggregate impact assessment must escalate bulk operations"
         )
 
     @pytest.mark.atm1(attack_vector="AV-2")
@@ -360,6 +368,10 @@ class TestTA006_ResourceAbuse:
         ROUND 2: Attack succeeded (no depth limit).
         ROUND 3: Blue team fix BT-006 added max_call_depth.
         """
+        # Raise aggregate threshold so recursion depth limit is tested,
+        # not aggregate impact controls (which are tested separately).
+        runtime._decision_engine._aggregate_threshold = 100
+
         cap = make_capability(cap_id="cap-recurse")
         runtime.capabilities.register(cap)
         runtime.capabilities.grant("loop-agent", "cap-recurse")
