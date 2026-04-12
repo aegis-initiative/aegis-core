@@ -86,6 +86,99 @@ class Capability:
         reference = at or datetime.now(UTC)
         return self.expires_at > reference
 
+    def to_dict(self) -> dict[str, Any]:
+        """Serialize this capability to a JSON-safe dictionary.
+
+        The returned dictionary is suitable for writing to a ``registry.json``
+        file consumed by :meth:`CapabilityRegistry.load_from_json`, and is the
+        exact format produced by :meth:`from_dict`'s inverse.
+
+        Returns
+        -------
+        dict
+            JSON-safe representation with ISO-8601 timestamps.
+        """
+        return {
+            "id": self.id,
+            "name": self.name,
+            "description": self.description,
+            "action_types": list(self.action_types),
+            "target_patterns": list(self.target_patterns),
+            "granted_at": self.granted_at.isoformat(),
+            "expires_at": self.expires_at.isoformat() if self.expires_at else None,
+            "metadata": dict(self.metadata),
+        }
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> Capability:
+        """Build a :class:`Capability` from a dict loaded from JSON.
+
+        This is the reciprocal of :meth:`to_dict` and is used by
+        :meth:`CapabilityRegistry.load_from_json` to rehydrate entries from
+        a file-based registry (RFC-0005 RDP-03).
+
+        Required fields: ``id``, ``name``, ``description``, ``action_types``,
+        ``target_patterns``. Optional fields: ``granted_at``, ``expires_at``,
+        ``metadata``.
+
+        Parameters
+        ----------
+        data : dict
+            Parsed JSON object describing the capability.
+
+        Returns
+        -------
+        Capability
+            The constructed capability.
+
+        Raises
+        ------
+        ValueError
+            If a required field is missing or has the wrong type.
+        """
+        required = ("id", "name", "description", "action_types", "target_patterns")
+        missing = [k for k in required if k not in data]
+        if missing:
+            raise ValueError(
+                f"registry.json capability entry missing required field(s): "
+                f"{', '.join(missing)}"
+            )
+
+        if not isinstance(data["action_types"], list) or not all(
+            isinstance(a, str) for a in data["action_types"]
+        ):
+            raise ValueError("capability.action_types must be a list of strings")
+        if not isinstance(data["target_patterns"], list) or not all(
+            isinstance(t, str) for t in data["target_patterns"]
+        ):
+            raise ValueError("capability.target_patterns must be a list of strings")
+
+        granted_at_raw = data.get("granted_at")
+        if granted_at_raw is None:
+            granted_at = datetime.now(UTC)
+        else:
+            granted_at = datetime.fromisoformat(granted_at_raw)
+
+        expires_at_raw = data.get("expires_at")
+        expires_at = (
+            datetime.fromisoformat(expires_at_raw) if expires_at_raw else None
+        )
+
+        metadata = data.get("metadata") or {}
+        if not isinstance(metadata, dict):
+            raise ValueError("capability.metadata must be an object (dict)")
+
+        return cls(
+            id=str(data["id"]),
+            name=str(data["name"]),
+            description=str(data["description"]),
+            action_types=list(data["action_types"]),
+            target_patterns=list(data["target_patterns"]),
+            granted_at=granted_at,
+            expires_at=expires_at,
+            metadata=metadata,
+        )
+
     def covers(self, action_type: str, target: str) -> bool:
         """Return ``True`` if this capability permits *action_type* on *target*.
 
@@ -494,3 +587,126 @@ class CapabilityRegistry:
             True if the agent has a matching active capability.
         """
         return any(cap.covers(action_type, target) for cap in self.get_agent_capabilities(agent_id))
+
+    # ------------------------------------------------------------------
+    # File-based configuration (RFC-0005 RDP-03)
+    # ------------------------------------------------------------------
+
+    def load_from_json(self, path: str | Any) -> None:
+        """Populate the registry from a ``registry.json`` file.
+
+        This method implements the file-based capability registry pattern
+        specified by RFC-0005 Reference Deployment Pattern 03 (Embedded
+        Lightweight). Capabilities are registered and, if the file contains
+        a ``grants`` section, each agent's capability grants are applied in
+        the same call so a single call fully populates the registry.
+
+        File format (``registry.json``)
+        -------------------------------
+        ::
+
+            {
+              "version": "1",
+              "capabilities": [
+                {
+                  "id": "fs.read.tmp",
+                  "name": "Read /var/tmp",
+                  "description": "Read files under /var/tmp",
+                  "action_types": ["file_read"],
+                  "target_patterns": ["/var/tmp/*"],
+                  "expires_at": null,
+                  "metadata": {}
+                }
+              ],
+              "grants": {
+                "agent-alice": ["fs.read.tmp"],
+                "agent-bob": []
+              }
+            }
+
+        The ``version`` field is reserved for forward compatibility and is
+        currently checked only for presence. The ``capabilities`` list is
+        required. The ``grants`` mapping is optional — capabilities can be
+        registered without being granted to any agent.
+
+        Parameters
+        ----------
+        path : str or path-like
+            Filesystem path to the ``registry.json`` file.
+
+        Raises
+        ------
+        FileNotFoundError
+            If the file does not exist.
+        ValueError
+            If the file is not valid JSON, is not the expected shape, or if
+            a capability entry or grant references an unknown capability ID.
+        AEGISCapabilityError
+            If the registry is frozen, or if ``register``/``grant`` itself
+            raises.
+        """
+        import json
+        from pathlib import Path
+
+        file_path = Path(path)
+        if not file_path.is_file():
+            raise FileNotFoundError(f"registry.json not found at {file_path}")
+
+        try:
+            data = json.loads(file_path.read_text(encoding="utf-8"))
+        except json.JSONDecodeError as exc:
+            raise ValueError(
+                f"registry.json at {file_path} is not valid JSON: {exc}"
+            ) from exc
+
+        if not isinstance(data, dict):
+            raise ValueError(
+                f"registry.json at {file_path} must contain a top-level object"
+            )
+        if "capabilities" not in data:
+            raise ValueError(
+                f"registry.json at {file_path} missing required field "
+                f"'capabilities'"
+            )
+        if not isinstance(data["capabilities"], list):
+            raise ValueError(
+                f"registry.json at {file_path} field 'capabilities' must be "
+                f"a list"
+            )
+
+        # Phase 1: parse + register every capability before touching grants.
+        # This fails fast on malformed files without leaving the registry
+        # in a partially-populated state — on error, the caller can retry
+        # after fixing the file. Frozen-registry errors from register() are
+        # also caught in this phase and propagated before any grants are
+        # applied.
+        for entry in data["capabilities"]:
+            if not isinstance(entry, dict):
+                raise ValueError(
+                    "each entry in registry.json 'capabilities' must be an object"
+                )
+            self.register(Capability.from_dict(entry))
+
+        # Phase 2: apply grants. Missing-capability grants are a configuration
+        # error and raised eagerly so they are visible at load time rather
+        # than as runtime denials.
+        grants = data.get("grants") or {}
+        if not isinstance(grants, dict):
+            raise ValueError(
+                f"registry.json at {file_path} field 'grants' must be an "
+                f"object mapping agent_id to list of capability IDs"
+            )
+
+        known_cap_ids = set(self._capabilities.keys())
+        for agent_id, cap_ids in grants.items():
+            if not isinstance(cap_ids, list):
+                raise ValueError(
+                    f"grants['{agent_id}'] must be a list of capability IDs"
+                )
+            for cap_id in cap_ids:
+                if cap_id not in known_cap_ids:
+                    raise ValueError(
+                        f"grants['{agent_id}'] references unknown capability "
+                        f"'{cap_id}' not defined in this registry"
+                    )
+                self.grant(str(agent_id), str(cap_id))
