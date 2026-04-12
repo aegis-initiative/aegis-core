@@ -35,6 +35,7 @@ from .exceptions import (
     AEGISValidationError,
 )
 from .gateway import GovernanceGateway
+from .mcp_server import AEGISMCPServer
 from .policy_engine import (
     Policy,
     PolicyCondition,
@@ -51,7 +52,6 @@ from .protocol import (
     AGPResponse,
     Decision,
 )
-from .mcp_server import AEGISMCPServer
 from .runtime import AEGISRuntime
 from .tool_proxy import ToolProxy
 

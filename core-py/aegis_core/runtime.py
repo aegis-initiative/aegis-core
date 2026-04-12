@@ -96,6 +96,67 @@ class AEGISRuntime:
         self._is_shutdown = False
 
     # ------------------------------------------------------------------
+    # File-based configuration (RFC-0005 RDP-03)
+    # ------------------------------------------------------------------
+
+    @classmethod
+    def from_config(
+        cls,
+        registry: str | None = None,
+        *,
+        audit_db: str = ":memory:",
+    ) -> AEGISRuntime:
+        """Build a runtime from on-disk configuration files.
+
+        This is the RFC-0005 RDP-03 (Embedded Lightweight) entry point:
+        a single call that instantiates a runtime and loads its capability
+        registry from a ``registry.json`` file. It is equivalent to::
+
+            rt = AEGISRuntime(db_path=audit_db)
+            if registry is not None:
+                rt.capabilities.load_from_json(registry)
+
+        but is provided as a classmethod so RDP-03 reference deployments
+        can be a single line of setup.
+
+        Parameters
+        ----------
+        registry : str or path-like, optional
+            Path to a ``registry.json`` file. If ``None``, the runtime is
+            instantiated with an empty capability registry (default-deny
+            posture). See
+            :meth:`CapabilityRegistry.load_from_json` for the file format.
+        audit_db : str, optional
+            SQLite database path for the audit system. Defaults to
+            ``":memory:"`` (in-process, no persistence). For RDP-03
+            deployments the caller will typically pass a filesystem path
+            such as ``/var/lib/aegis/audit.sqlite`` or the sentinel for an
+            append-only JSONL sink configured separately.
+
+        Returns
+        -------
+        AEGISRuntime
+            A fully-assembled runtime with capabilities loaded (if a
+            registry file was supplied) and policies still empty. Callers
+            are responsible for adding policies via ``rt.policies.add_policy``
+            or a future policies.json loader (see changelog v0.1.3 for the
+            current scope of file-based loading).
+
+        Raises
+        ------
+        FileNotFoundError
+            If ``registry`` is supplied and does not point to an existing
+            file.
+        ValueError
+            If ``registry`` is supplied and the file is malformed (see
+            :meth:`CapabilityRegistry.load_from_json` for specifics).
+        """
+        rt = cls(db_path=audit_db)
+        if registry is not None:
+            rt.capabilities.load_from_json(registry)
+        return rt
+
+    # ------------------------------------------------------------------
     # Context manager support
     # ------------------------------------------------------------------
 

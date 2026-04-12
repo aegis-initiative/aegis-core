@@ -9,6 +9,57 @@ and versions are synchronized with the main [AEGIS Initiative Changelog](../CHAN
 
 ---
 
+# [0.1.3] — 2026-04-12
+
+**Status:** STABLE — adds the RFC-0005 RDP-03 (Embedded Lightweight) file-based
+configuration path without breaking any existing API.
+
+## Added
+
+- **`Capability.to_dict()` / `Capability.from_dict()`** — round-trippable
+  serialization for the capability dataclass. Timestamps are written as
+  ISO-8601 strings so the output is valid JSON.
+- **`CapabilityRegistry.load_from_json(path)`** — populates the registry from
+  a `registry.json` file matching the RFC-0005 RDP-03 file-based capability
+  registry pattern. Loads capabilities in one phase, then applies grants in a
+  second phase so a malformed grants section cannot leave the registry in a
+  partially-populated state. Raises `FileNotFoundError` for a missing file,
+  `ValueError` for malformed JSON or missing required fields, and propagates
+  `AEGISCapabilityError` from `register()` / `grant()` unchanged.
+- **`AEGISRuntime.from_config(registry=..., audit_db=...)`** — one-line
+  constructor that instantiates a runtime and loads its capability registry
+  from a file. This is the recommended entry point for RDP-03 reference
+  deployments. With no `registry` argument the runtime is fully default-deny.
+- **16 new tests** in `tests/test_from_config.py` covering round-trip
+  serialization, field validation, file loading (happy path, missing file,
+  malformed JSON, missing required section, unknown-capability grants, wrong
+  grant shape), `from_config` with and without a registry, and audit DB path
+  plumbing.
+
+## Context
+
+RFC-0005 defines Reference Deployment Pattern 03 ("Embedded Lightweight") as
+the starting point for most practitioners adopting AEGIS. RDP-03's contract
+says the capability registry is a `registry.json` file and the governance
+gateway is a Python library, not a separate service. Before v0.1.3, matching
+that contract required writing an adapter in every deployment because aegis-
+core's `CapabilityRegistry` only accepted in-process `Capability` objects
+registered through `register()`. This release closes that gap natively: RDP-03
+reference deployments can now load from the specified file format without a
+per-deployment shim, and the `registry.json` format is a lossless round-trip
+of the existing `Capability` dataclass so no data model changes were required.
+
+A follow-up release will add the same file-based loading for `PolicyEngine`
+(`policies.json`). Until then, RDP-03 deployments should continue to construct
+policies programmatically via `rt.policies.add_policy(...)`.
+
+## Changed
+
+- Nothing. No existing public API was modified. All 403 pre-existing tests
+  continue to pass (419 total after this release).
+
+---
+
 # [0.1.2] — 2026-03-31
 
 **Status:** STABLE — Production-ready reference implementation
