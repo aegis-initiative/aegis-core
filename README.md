@@ -173,4 +173,4 @@ Licensed under the [Business Source License 1.1](LICENSE). See LICENSE for
 details.
 
 AEGIS™ and **"Capability without constraint is not intelligence™"** are
-trademarks of **Finnoybu IP LLC**.
+trademarks of **Finnoybu IP LLC**, used under license by **AEGIS Operations LLC**.

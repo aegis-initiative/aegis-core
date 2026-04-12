@@ -10,8 +10,8 @@ runtime for performance-critical deployments.
 ## Org Context
 
 - GitHub Org: github.com/aegis-initiative
-- IP Owner: Finnoybu IP LLC
-- Parent Ecosystem: Finnoybu Holdings LLC
+- Operating Entity: AEGIS Operations LLC
+- Trademark Owner: Finnoybu IP LLC
 - Domain: aegis-platform.net
 
 ## This Repo's Role
