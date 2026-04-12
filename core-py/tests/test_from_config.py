@@ -18,7 +18,6 @@ from aegis_core import AEGISRuntime
 from aegis_core.capability_registry import Capability, CapabilityRegistry
 from aegis_core.protocol import ActionType
 
-
 # ---------------------------------------------------------------------------
 # Capability.to_dict / from_dict
 # ---------------------------------------------------------------------------
@@ -66,42 +65,50 @@ class TestCapabilityFromDictValidation:
 
     def test_missing_required_field(self):
         with pytest.raises(ValueError, match="missing required field"):
-            Capability.from_dict({
-                "id": "cap",
-                "name": "X",
-                # missing description, action_types, target_patterns
-            })
+            Capability.from_dict(
+                {
+                    "id": "cap",
+                    "name": "X",
+                    # missing description, action_types, target_patterns
+                }
+            )
 
     def test_action_types_not_list(self):
         with pytest.raises(ValueError, match="action_types"):
-            Capability.from_dict({
-                "id": "cap",
-                "name": "X",
-                "description": "d",
-                "action_types": "tool_call",  # string, not list
-                "target_patterns": ["*"],
-            })
+            Capability.from_dict(
+                {
+                    "id": "cap",
+                    "name": "X",
+                    "description": "d",
+                    "action_types": "tool_call",  # string, not list
+                    "target_patterns": ["*"],
+                }
+            )
 
     def test_target_patterns_non_string(self):
         with pytest.raises(ValueError, match="target_patterns"):
-            Capability.from_dict({
-                "id": "cap",
-                "name": "X",
-                "description": "d",
-                "action_types": ["tool_call"],
-                "target_patterns": [1, 2, 3],
-            })
+            Capability.from_dict(
+                {
+                    "id": "cap",
+                    "name": "X",
+                    "description": "d",
+                    "action_types": ["tool_call"],
+                    "target_patterns": [1, 2, 3],
+                }
+            )
 
     def test_metadata_not_object(self):
         with pytest.raises(ValueError, match="metadata"):
-            Capability.from_dict({
-                "id": "cap",
-                "name": "X",
-                "description": "d",
-                "action_types": ["tool_call"],
-                "target_patterns": ["*"],
-                "metadata": "not-a-dict",
-            })
+            Capability.from_dict(
+                {
+                    "id": "cap",
+                    "name": "X",
+                    "description": "d",
+                    "action_types": ["tool_call"],
+                    "target_patterns": ["*"],
+                    "metadata": "not-a-dict",
+                }
+            )
 
 
 # ---------------------------------------------------------------------------

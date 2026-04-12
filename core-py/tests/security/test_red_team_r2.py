@@ -123,9 +123,7 @@ class TestTA002_OperationalScope:
         assert approved_count <= threshold, (
             f"Only {threshold} requests should be approved before escalation"
         )
-        assert escalated_count > 0, (
-            "Aggregate impact assessment must escalate bulk operations"
-        )
+        assert escalated_count > 0, "Aggregate impact assessment must escalate bulk operations"
 
     @pytest.mark.atm1(attack_vector="AV-2")
     @pytest.mark.atx1(technique_id="T2003")

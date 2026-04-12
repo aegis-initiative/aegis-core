@@ -21,6 +21,7 @@ Design
 
 from __future__ import annotations
 
+import contextlib
 import fnmatch
 import hmac
 import posixpath
@@ -140,8 +141,7 @@ class Capability:
         missing = [k for k in required if k not in data]
         if missing:
             raise ValueError(
-                f"registry.json capability entry missing required field(s): "
-                f"{', '.join(missing)}"
+                f"registry.json capability entry missing required field(s): {', '.join(missing)}"
             )
 
         if not isinstance(data["action_types"], list) or not all(
@@ -160,9 +160,7 @@ class Capability:
             granted_at = datetime.fromisoformat(granted_at_raw)
 
         expires_at_raw = data.get("expires_at")
-        expires_at = (
-            datetime.fromisoformat(expires_at_raw) if expires_at_raw else None
-        )
+        expires_at = datetime.fromisoformat(expires_at_raw) if expires_at_raw else None
 
         metadata = data.get("metadata") or {}
         if not isinstance(metadata, dict):
@@ -243,9 +241,7 @@ class CapabilityRegistry:
         self._seal_token: str | None = None
         # RT-011 / T1003: Configurable bulk grant batch limit
         self._bulk_grant_limit = (
-            bulk_grant_limit
-            if bulk_grant_limit is not None
-            else self._DEFAULT_BULK_GRANT_LIMIT
+            bulk_grant_limit if bulk_grant_limit is not None else self._DEFAULT_BULK_GRANT_LIMIT
         )
         # RT-011: Callbacks notified when bulk grant exceeds alert threshold
         self._bulk_grant_listeners: list[Any] = []
@@ -471,13 +467,13 @@ class CapabilityRegistry:
                     self._agent_capabilities[agent_id].add(capability_id)
                     count += 1
 
-        # RT-011: Fire audit alert for significant bulk grants
+        # RT-011: Fire audit alert for significant bulk grants.
+        # Listeners must not break the grant operation; any listener
+        # exception is deliberately swallowed.
         if len(agent_ids) >= 10:
             for listener in self._bulk_grant_listeners:
-                try:
+                with contextlib.suppress(Exception):
                     listener(agent_ids, capability_id, count)
-                except Exception:
-                    pass  # Listeners must not break the grant operation
 
         return count
 
@@ -592,7 +588,7 @@ class CapabilityRegistry:
     # File-based configuration (RFC-0005 RDP-03)
     # ------------------------------------------------------------------
 
-    def load_from_json(self, path: str | Any) -> None:
+    def load_from_json(self, path: str) -> None:
         """Populate the registry from a ``registry.json`` file.
 
         This method implements the file-based capability registry pattern
@@ -655,24 +651,14 @@ class CapabilityRegistry:
         try:
             data = json.loads(file_path.read_text(encoding="utf-8"))
         except json.JSONDecodeError as exc:
-            raise ValueError(
-                f"registry.json at {file_path} is not valid JSON: {exc}"
-            ) from exc
+            raise ValueError(f"registry.json at {file_path} is not valid JSON: {exc}") from exc
 
         if not isinstance(data, dict):
-            raise ValueError(
-                f"registry.json at {file_path} must contain a top-level object"
-            )
+            raise ValueError(f"registry.json at {file_path} must contain a top-level object")
         if "capabilities" not in data:
-            raise ValueError(
-                f"registry.json at {file_path} missing required field "
-                f"'capabilities'"
-            )
+            raise ValueError(f"registry.json at {file_path} missing required field 'capabilities'")
         if not isinstance(data["capabilities"], list):
-            raise ValueError(
-                f"registry.json at {file_path} field 'capabilities' must be "
-                f"a list"
-            )
+            raise ValueError(f"registry.json at {file_path} field 'capabilities' must be a list")
 
         # Phase 1: parse + register every capability before touching grants.
         # This fails fast on malformed files without leaving the registry
@@ -682,9 +668,7 @@ class CapabilityRegistry:
         # applied.
         for entry in data["capabilities"]:
             if not isinstance(entry, dict):
-                raise ValueError(
-                    "each entry in registry.json 'capabilities' must be an object"
-                )
+                raise ValueError("each entry in registry.json 'capabilities' must be an object")
             self.register(Capability.from_dict(entry))
 
         # Phase 2: apply grants. Missing-capability grants are a configuration
@@ -700,9 +684,7 @@ class CapabilityRegistry:
         known_cap_ids = set(self._capabilities.keys())
         for agent_id, cap_ids in grants.items():
             if not isinstance(cap_ids, list):
-                raise ValueError(
-                    f"grants['{agent_id}'] must be a list of capability IDs"
-                )
+                raise ValueError(f"grants['{agent_id}'] must be a list of capability IDs")
             for cap_id in cap_ids:
                 if cap_id not in known_cap_ids:
                     raise ValueError(

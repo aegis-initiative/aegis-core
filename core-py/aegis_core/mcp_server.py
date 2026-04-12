@@ -125,7 +125,8 @@ class AEGISMCPServer:
         self._external_tools[name] = {
             "name": name,
             "description": description or f"Governed tool: {name}",
-            "inputSchema": input_schema or {
+            "inputSchema": input_schema
+            or {
                 "type": "object",
                 "properties": {},
             },
@@ -146,84 +147,83 @@ class AEGISMCPServer:
 
         # Optional: voluntary governance proposal (off by default)
         if self._expose_propose:
-            tools.append({
-                "name": "aegis_propose",
-                "description": (
-                    "Submit an action proposal to the AEGIS governance "
-                    "engine and receive a decision (ALLOW, DENY, ESCALATE, "
-                    "or REQUIRE_CONFIRMATION). This is an optional "
-                    "pre-check — enforcement happens transparently on "
-                    "every tool call regardless."
-                ),
-                "inputSchema": {
-                    "type": "object",
-                    "properties": {
-                        "capability": {
-                            "type": "string",
-                            "description": (
-                                "The capability/action type being requested "
-                                "(e.g. file.read, shell.exec, network.fetch)"
-                            ),
+            tools.append(
+                {
+                    "name": "aegis_propose",
+                    "description": (
+                        "Submit an action proposal to the AEGIS governance "
+                        "engine and receive a decision (ALLOW, DENY, ESCALATE, "
+                        "or REQUIRE_CONFIRMATION). This is an optional "
+                        "pre-check — enforcement happens transparently on "
+                        "every tool call regardless."
+                    ),
+                    "inputSchema": {
+                        "type": "object",
+                        "properties": {
+                            "capability": {
+                                "type": "string",
+                                "description": (
+                                    "The capability/action type being requested "
+                                    "(e.g. file.read, shell.exec, network.fetch)"
+                                ),
+                            },
+                            "resource": {
+                                "type": "string",
+                                "description": "The target resource (file path, URL, command)",
+                            },
+                            "parameters": {
+                                "type": "object",
+                                "description": "Additional parameters for the action",
+                                "default": {},
+                            },
                         },
-                        "resource": {
-                            "type": "string",
-                            "description": "The target resource (file path, URL, command)",
-                        },
-                        "parameters": {
-                            "type": "object",
-                            "description": "Additional parameters for the action",
-                            "default": {},
-                        },
+                        "required": ["capability", "resource"],
                     },
-                    "required": ["capability", "resource"],
-                },
-            })
+                }
+            )
 
-        tools.extend([
-            {
-                "name": "aegis_capabilities",
-                "description": (
-                    "List all capabilities registered in the AEGIS "
-                    "governance runtime."
-                ),
-                "inputSchema": {
-                    "type": "object",
-                    "properties": {},
+        tools.extend(
+            [
+                {
+                    "name": "aegis_capabilities",
+                    "description": (
+                        "List all capabilities registered in the AEGIS governance runtime."
+                    ),
+                    "inputSchema": {
+                        "type": "object",
+                        "properties": {},
+                    },
                 },
-            },
-            {
-                "name": "aegis_audit",
-                "description": (
-                    "Query the AEGIS governance audit log for recent "
-                    "decisions."
-                ),
-                "inputSchema": {
-                    "type": "object",
-                    "properties": {
-                        "limit": {
-                            "type": "integer",
-                            "description": "Maximum number of records to return",
-                            "default": 20,
-                        },
-                        "agent_id": {
-                            "type": "string",
-                            "description": "Filter by agent ID (optional)",
+                {
+                    "name": "aegis_audit",
+                    "description": ("Query the AEGIS governance audit log for recent decisions."),
+                    "inputSchema": {
+                        "type": "object",
+                        "properties": {
+                            "limit": {
+                                "type": "integer",
+                                "description": "Maximum number of records to return",
+                                "default": 20,
+                            },
+                            "agent_id": {
+                                "type": "string",
+                                "description": "Filter by agent ID (optional)",
+                            },
                         },
                     },
                 },
-            },
-            {
-                "name": "aegis_policies",
-                "description": (
-                    "List all governance policies registered in the AEGIS "
-                    "runtime."
-                ),
-                "inputSchema": {
-                    "type": "object",
-                    "properties": {},
+                {
+                    "name": "aegis_policies",
+                    "description": (
+                        "List all governance policies registered in the AEGIS runtime."
+                    ),
+                    "inputSchema": {
+                        "type": "object",
+                        "properties": {},
+                    },
                 },
-            },
-        ])
+            ]
+        )
 
         return tools
 
@@ -261,10 +261,12 @@ class AEGISMCPServer:
         try:
             response = self._runtime.gateway.submit(request)
         except Exception as exc:
-            return json.dumps({
-                "outcome": "ERROR",
-                "reason": str(exc),
-            })
+            return json.dumps(
+                {
+                    "outcome": "ERROR",
+                    "reason": str(exc),
+                }
+            )
 
         outcome_map = {
             Decision.APPROVED: "ALLOW",
@@ -273,25 +275,29 @@ class AEGISMCPServer:
             Decision.REQUIRE_CONFIRMATION: "REQUIRE_CONFIRMATION",
         }
 
-        return json.dumps({
-            "decision_id": response.request_id,
-            "outcome": outcome_map.get(response.decision, response.decision.value),
-            "reason": response.reason,
-            "risk_score": response.risk_score,
-            "audit_ref": response.audit_id,
-        })
+        return json.dumps(
+            {
+                "decision_id": response.request_id,
+                "outcome": outcome_map.get(response.decision, response.decision.value),
+                "reason": response.reason,
+                "risk_score": response.risk_score,
+                "audit_ref": response.audit_id,
+            }
+        )
 
     def _handle_aegis_capabilities(self, arguments: dict[str, Any]) -> str:
         """Execute the aegis_capabilities tool."""
         caps = []
         for cap in self._runtime.capabilities.get_agent_capabilities(self._agent_id):
-            caps.append({
-                "id": cap.id,
-                "name": cap.name,
-                "description": cap.description,
-                "action_types": cap.action_types,
-                "target_patterns": cap.target_patterns,
-            })
+            caps.append(
+                {
+                    "id": cap.id,
+                    "name": cap.name,
+                    "description": cap.description,
+                    "action_types": cap.action_types,
+                    "target_patterns": cap.target_patterns,
+                }
+            )
         return json.dumps({"capabilities": caps, "count": len(caps)})
 
     def _handle_aegis_audit(self, arguments: dict[str, Any]) -> str:
@@ -376,21 +382,23 @@ class AEGISMCPServer:
 
         # Methods that require a response
         if method == "initialize":
-            return self._rpc_result(msg_id, {
-                "protocolVersion": _PROTOCOL_VERSION,
-                "capabilities": {
-                    "tools": {},
+            return self._rpc_result(
+                msg_id,
+                {
+                    "protocolVersion": _PROTOCOL_VERSION,
+                    "capabilities": {
+                        "tools": {},
+                    },
+                    "serverInfo": {
+                        "name": "aegis-governance",
+                        "version": "0.2.0",
+                    },
                 },
-                "serverInfo": {
-                    "name": "aegis-governance",
-                    "version": "0.2.0",
-                },
-            })
+            )
 
         if method == "tools/list":
             tools = self._builtin_tools() + [
-                self._external_tools[name]
-                for name in self._external_tools
+                self._external_tools[name] for name in self._external_tools
             ]
             return self._rpc_result(msg_id, {"tools": tools})
 
@@ -413,9 +421,12 @@ class AEGISMCPServer:
                     text = handlers[tool_name](arguments)
                 except Exception as exc:
                     return self._rpc_error(msg_id, -32603, str(exc))
-                return self._rpc_result(msg_id, {
-                    "content": [{"type": "text", "text": text}],
-                })
+                return self._rpc_result(
+                    msg_id,
+                    {
+                        "content": [{"type": "text", "text": text}],
+                    },
+                )
 
             # External governed tools
             if tool_name in self._external_tools:
@@ -423,13 +434,14 @@ class AEGISMCPServer:
                     text = self._handle_external_tool(tool_name, arguments)
                 except Exception as exc:
                     return self._rpc_error(msg_id, -32603, str(exc))
-                return self._rpc_result(msg_id, {
-                    "content": [{"type": "text", "text": text}],
-                })
+                return self._rpc_result(
+                    msg_id,
+                    {
+                        "content": [{"type": "text", "text": text}],
+                    },
+                )
 
-            return self._rpc_error(
-                msg_id, -32601, f"Unknown tool: {tool_name}"
-            )
+            return self._rpc_error(msg_id, -32601, f"Unknown tool: {tool_name}")
 
         if method == "ping":
             return self._rpc_result(msg_id, {})
@@ -470,12 +482,12 @@ class AEGISMCPServer:
             try:
                 message = json.loads(line)
             except json.JSONDecodeError:
-                response = self._rpc_error(None, -32700, "Parse error")
-                sys.stdout.write(json.dumps(response) + "\n")
+                error_response = self._rpc_error(None, -32700, "Parse error")
+                sys.stdout.write(json.dumps(error_response) + "\n")
                 sys.stdout.flush()
                 continue
 
-            response = self._handle_message(message)
+            response: dict[str, Any] | None = self._handle_message(message)
             if response is not None:
                 sys.stdout.write(json.dumps(response) + "\n")
                 sys.stdout.flush()

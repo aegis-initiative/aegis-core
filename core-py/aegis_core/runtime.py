@@ -102,7 +102,7 @@ class AEGISRuntime:
     @classmethod
     def from_config(
         cls,
-        registry: str | Any | None = None,
+        registry: str | None = None,
         *,
         audit_db: str = ":memory:",
     ) -> AEGISRuntime:

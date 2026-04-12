@@ -27,8 +27,8 @@ import argparse
 import sys
 
 from .. import (
-    AEGISRuntime,
     ActionType,
+    AEGISRuntime,
     Capability,
     Policy,
     PolicyCondition,
@@ -42,103 +42,132 @@ def _build_demo_runtime() -> AEGISRuntime:
     rt = AEGISRuntime()
 
     # Capabilities
-    rt.capabilities.register(Capability(
-        id="cap-file-read",
-        name="file.read",
-        description="Read files from governed paths",
-        action_types=[ActionType.FILE_READ.value],
-        target_patterns=["/home/*", "/data/*"],
-    ))
-    rt.capabilities.register(Capability(
-        id="cap-file-write",
-        name="file.write",
-        description="Write files to governed paths",
-        action_types=[ActionType.FILE_WRITE.value],
-        target_patterns=["/home/*", "/data/*"],
-    ))
-    rt.capabilities.register(Capability(
-        id="cap-network",
-        name="network.fetch",
-        description="Fetch from approved network endpoints",
-        action_types=[ActionType.API_CALL.value],
-        target_patterns=["https://*"],
-    ))
-    rt.capabilities.register(Capability(
-        id="cap-shell",
-        name="shell.exec",
-        description="Execute shell commands (requires confirmation)",
-        action_types=[ActionType.SHELL_EXEC.value],
-        target_patterns=["*"],
-    ))
-    rt.capabilities.register(Capability(
-        id="cap-tool",
-        name="tool.call",
-        description="Generic tool calls",
-        action_types=[ActionType.TOOL_CALL.value],
-        target_patterns=["*"],
-    ))
+    rt.capabilities.register(
+        Capability(
+            id="cap-file-read",
+            name="file.read",
+            description="Read files from governed paths",
+            action_types=[ActionType.FILE_READ.value],
+            target_patterns=["/home/*", "/data/*"],
+        )
+    )
+    rt.capabilities.register(
+        Capability(
+            id="cap-file-write",
+            name="file.write",
+            description="Write files to governed paths",
+            action_types=[ActionType.FILE_WRITE.value],
+            target_patterns=["/home/*", "/data/*"],
+        )
+    )
+    rt.capabilities.register(
+        Capability(
+            id="cap-network",
+            name="network.fetch",
+            description="Fetch from approved network endpoints",
+            action_types=[ActionType.API_CALL.value],
+            target_patterns=["https://*"],
+        )
+    )
+    rt.capabilities.register(
+        Capability(
+            id="cap-shell",
+            name="shell.exec",
+            description="Execute shell commands (requires confirmation)",
+            action_types=[ActionType.SHELL_EXEC.value],
+            target_patterns=["*"],
+        )
+    )
+    rt.capabilities.register(
+        Capability(
+            id="cap-tool",
+            name="tool.call",
+            description="Generic tool calls",
+            action_types=[ActionType.TOOL_CALL.value],
+            target_patterns=["*"],
+        )
+    )
 
     # Grant all capabilities to the default agent
-    for cap_id in ("cap-file-read", "cap-file-write", "cap-network",
-                    "cap-shell", "cap-tool"):
+    for cap_id in ("cap-file-read", "cap-file-write", "cap-network", "cap-shell", "cap-tool"):
         rt.capabilities.grant("mcp-agent", cap_id)
 
     # Policies
-    rt.policies.add_policy(Policy(
-        id="pol-allow-reads",
-        name="Allow file reads",
-        description="File reads in governed paths are allowed",
-        effect=PolicyEffect.ALLOW,
-        conditions=[PolicyCondition(
-            evaluate=lambda req: req.action.type == ActionType.FILE_READ,
-            description="action is file_read",
-        )],
-        priority=200,
-    ))
-    rt.policies.add_policy(Policy(
-        id="pol-deny-writes",
-        name="Deny file writes",
-        description="File writes are denied by policy",
-        effect=PolicyEffect.DENY,
-        conditions=[PolicyCondition(
-            evaluate=lambda req: req.action.type == ActionType.FILE_WRITE,
-            description="action is file_write",
-        )],
-        priority=50,
-    ))
-    rt.policies.add_policy(Policy(
-        id="pol-escalate-network",
-        name="Escalate network requests",
-        description="Network requests require elevated review",
-        effect=PolicyEffect.ESCALATE,
-        conditions=[PolicyCondition(
-            evaluate=lambda req: req.action.type == ActionType.API_CALL,
-            description="action is api_call",
-        )],
-        priority=100,
-    ))
-    rt.policies.add_policy(Policy(
-        id="pol-confirm-shell",
-        name="Require confirmation for shell",
-        description="Shell commands require human confirmation",
-        effect=PolicyEffect.REQUIRE_CONFIRMATION,
-        conditions=[PolicyCondition(
-            evaluate=lambda req: req.action.type == ActionType.SHELL_EXEC,
-            description="action is shell_exec",
-        )],
-        priority=100,
-    ))
-    rt.policies.add_policy(Policy(
-        id="pol-allow-tools",
-        name="Allow tool calls",
-        description="Generic tool calls are allowed",
-        effect=PolicyEffect.ALLOW,
-        conditions=[PolicyCondition(
-            evaluate=lambda req: req.action.type == ActionType.TOOL_CALL,
-            description="action is tool_call",
-        )],
-        priority=200,
-    ))
+    rt.policies.add_policy(
+        Policy(
+            id="pol-allow-reads",
+            name="Allow file reads",
+            description="File reads in governed paths are allowed",
+            effect=PolicyEffect.ALLOW,
+            conditions=[
+                PolicyCondition(
+                    evaluate=lambda req: req.action.type == ActionType.FILE_READ,
+                    description="action is file_read",
+                )
+            ],
+            priority=200,
+        )
+    )
+    rt.policies.add_policy(
+        Policy(
+            id="pol-deny-writes",
+            name="Deny file writes",
+            description="File writes are denied by policy",
+            effect=PolicyEffect.DENY,
+            conditions=[
+                PolicyCondition(
+                    evaluate=lambda req: req.action.type == ActionType.FILE_WRITE,
+                    description="action is file_write",
+                )
+            ],
+            priority=50,
+        )
+    )
+    rt.policies.add_policy(
+        Policy(
+            id="pol-escalate-network",
+            name="Escalate network requests",
+            description="Network requests require elevated review",
+            effect=PolicyEffect.ESCALATE,
+            conditions=[
+                PolicyCondition(
+                    evaluate=lambda req: req.action.type == ActionType.API_CALL,
+                    description="action is api_call",
+                )
+            ],
+            priority=100,
+        )
+    )
+    rt.policies.add_policy(
+        Policy(
+            id="pol-confirm-shell",
+            name="Require confirmation for shell",
+            description="Shell commands require human confirmation",
+            effect=PolicyEffect.REQUIRE_CONFIRMATION,
+            conditions=[
+                PolicyCondition(
+                    evaluate=lambda req: req.action.type == ActionType.SHELL_EXEC,
+                    description="action is shell_exec",
+                )
+            ],
+            priority=100,
+        )
+    )
+    rt.policies.add_policy(
+        Policy(
+            id="pol-allow-tools",
+            name="Allow tool calls",
+            description="Generic tool calls are allowed",
+            effect=PolicyEffect.ALLOW,
+            conditions=[
+                PolicyCondition(
+                    evaluate=lambda req: req.action.type == ActionType.TOOL_CALL,
+                    description="action is tool_call",
+                )
+            ],
+            priority=200,
+        )
+    )
 
     return rt
 

@@ -196,9 +196,7 @@ class GovernanceGateway:
         cutoff = now - self._rate_window
 
         with self._rate_lock:
-            times = self._agent_request_times.setdefault(
-                agent_id, collections.deque()
-            )
+            times = self._agent_request_times.setdefault(agent_id, collections.deque())
             # Evict entries outside the sliding window
             while times and times[0] < cutoff:
                 times.popleft()

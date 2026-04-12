@@ -193,23 +193,23 @@ class AuditSystem:
         The HMAC covers all data fields plus the previous record's hash,
         forming a verifiable chain (RT-009 / T9002, ATM-1 DC-1).
         """
-        payload = "|".join([
-            audit_id,
-            request_id,
-            agent_id,
-            action_type,
-            action_target,
-            action_parameters_json,
-            decision,
-            reason,
-            policy_evaluations_json,
-            session_id,
-            timestamp,
-            prev_hash,
-        ])
-        return hmac.new(
-            self._hmac_key, payload.encode("utf-8"), hashlib.sha256
-        ).hexdigest()
+        payload = "|".join(
+            [
+                audit_id,
+                request_id,
+                agent_id,
+                action_type,
+                action_target,
+                action_parameters_json,
+                decision,
+                reason,
+                policy_evaluations_json,
+                session_id,
+                timestamp,
+                prev_hash,
+            ]
+        )
+        return hmac.new(self._hmac_key, payload.encode("utf-8"), hashlib.sha256).hexdigest()
 
     # ------------------------------------------------------------------
     # Write
@@ -274,9 +274,18 @@ class AuditSystem:
                 # RT-009 / T9002: Chain to previous record's HMAC
                 prev_hash = self._last_hmac
                 record_hmac = self._compute_hmac(
-                    audit_id, request_id, agent_id, action_type,
-                    action_target, params_json, decision, reason,
-                    evals_json, session_id, timestamp, prev_hash,
+                    audit_id,
+                    request_id,
+                    agent_id,
+                    action_type,
+                    action_target,
+                    params_json,
+                    decision,
+                    reason,
+                    evals_json,
+                    session_id,
+                    timestamp,
+                    prev_hash,
                 )
 
                 self._conn.execute(
@@ -361,12 +370,18 @@ class AuditSystem:
                     evals_json = json.dumps(record_data["policy_evaluations"])
                     prev_hash = chain_hmac
                     record_hmac = self._compute_hmac(
-                        audit_id, record_data["request_id"],
-                        record_data["agent_id"], record_data["action_type"],
-                        record_data["action_target"], params_json,
-                        record_data["decision"], record_data["reason"],
-                        evals_json, record_data["session_id"],
-                        timestamp, prev_hash,
+                        audit_id,
+                        record_data["request_id"],
+                        record_data["agent_id"],
+                        record_data["action_type"],
+                        record_data["action_target"],
+                        params_json,
+                        record_data["decision"],
+                        record_data["reason"],
+                        evals_json,
+                        record_data["session_id"],
+                        timestamp,
+                        prev_hash,
                     )
                     self._conn.execute(
                         f"INSERT INTO audit_records ({', '.join(self._COLUMNS)}) "
