@@ -13,7 +13,8 @@
     "deque", "embedder", "fullwidth", "hmac", "metachar",
     "metacharacter", "metacharacters", "mypy", "NFKC", "nohup",
     "normpath", "posixpath", "pyproject", "pytest", "sandboxing",
-    "setattr", "stdlib", "subtechnique", "TOCTOU", "venv", "wipefs"
+    "setattr", "stdlib", "subtechnique", "TOCTOU", "venv", "wipefs",
+    "dataclass", "isort", "trippable"
   ],
   "ignorePaths": [
     "node_modules/**",
