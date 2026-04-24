@@ -125,7 +125,7 @@ REQUIRE_CONFIRMATION  # Requires explicit human approval
 ```
 
 Protocol specifications:
-[`aegis/rfc/`](https://github.com/aegis-initiative/aegis)
+[`aegis-governance/rfc/`](https://github.com/aegis-initiative/aegis-governance)
 
 ---
 
@@ -157,8 +157,7 @@ schemas/
 
 | Repo | Relationship |
 |---|---|
-| [aegis](https://github.com/aegis-initiative/aegis) | Architectural specs and schemas this engine implements |
-| [aegis-platform](https://github.com/aegis-initiative/aegis-platform) | Production platform that consumes this engine |
+| [aegis-governance](https://github.com/aegis-initiative/aegis-governance) | Architectural specs, RFCs, and JSON Schemas this engine implements |
 | [aegis-sdk](https://github.com/aegis-initiative/aegis-sdk) | Client SDK exposing a subset of this engine's capabilities |
 | [aegis-labs](https://github.com/aegis-initiative/aegis-labs) | Research sandbox for experimental scoring models |
 | [aegis-constitution](https://github.com/aegis-initiative/aegis-constitution) | Constitutional articles this engine enforces |
@@ -167,8 +166,6 @@ schemas/
 
 ## License & Trademark
 
-Licensed under the [Business Source License 1.1](LICENSE). See LICENSE for
-details.
+Licensed under the [Apache License 2.0](LICENSE). See LICENSE for details.
 
-AEGIS™ and **"Capability without constraint is not intelligence™"** are
-trademarks of **Finnoybu IP LLC**, used under license by **AEGIS Operations LLC**.
+AEGIS™ and **"Capability without constraint is not intelligence™"** are trademarks of **AEGIS Operations LLC**.

@@ -2,7 +2,7 @@
 
 ![Python](https://img.shields.io/badge/python-3.11+-blue)
 ![Status](https://img.shields.io/badge/status-alpha-orange)
-![License](https://img.shields.io/badge/license-BSL%201.1-blue)
+![License](https://img.shields.io/badge/license-Apache%202.0-blue)
 ![Tests](https://img.shields.io/badge/tests-403%20passing-brightgreen)
 
 The AEGIS Runtime is the **reference Python implementation** of the AEGIS
@@ -197,8 +197,6 @@ with full JSON serialization.
 
 ## License & Trademark
 
-Licensed under the [Business Source License 1.1](LICENSE). See LICENSE for
-details.
+Licensed under the [Apache License 2.0](LICENSE). See LICENSE for details.
 
-AEGIS™ and **"Capability without constraint is not intelligence™"** are
-trademarks of **Finnoybu IP LLC**.
+AEGIS™ and **"Capability without constraint is not intelligence™"** are trademarks of **AEGIS Operations LLC**.

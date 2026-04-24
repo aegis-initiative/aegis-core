@@ -51,13 +51,13 @@ class TestCapabilityDictRoundTrip:
             action_types=[ActionType.FILE_READ.value, ActionType.FILE_WRITE.value],
             target_patterns=["/var/tmp/*", "/home/agent/*"],
             expires_at=datetime.now(UTC) + timedelta(days=1),
-            metadata={"owner": "finnoybu", "tier": "high"},
+            metadata={"owner": "test-owner", "tier": "high"},
         )
         restored = Capability.from_dict(original.to_dict())
         assert restored.action_types == original.action_types
         assert restored.target_patterns == original.target_patterns
         assert restored.expires_at is not None
-        assert restored.metadata == {"owner": "finnoybu", "tier": "high"}
+        assert restored.metadata == {"owner": "test-owner", "tier": "high"}
 
 
 class TestCapabilityFromDictValidation:

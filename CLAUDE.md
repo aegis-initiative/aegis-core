@@ -11,7 +11,7 @@ runtime for performance-critical deployments.
 
 - GitHub Org: github.com/aegis-initiative
 - Operating Entity: AEGIS Operations LLC
-- Trademark Owner: Finnoybu IP LLC
+- Trademark Owner: AEGIS Operations LLC
 - Domain: aegis-platform.net
 
 ## This Repo's Role

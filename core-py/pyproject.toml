@@ -7,10 +7,10 @@ name = "aegis-core"
 version = "0.1.3"
 description = "AEGIS Governance Enforcement Engine — Python reference implementation"
 readme = "README.md"
-license = {text = "BSL-1.1"}
+license = {text = "Apache-2.0"}
 requires-python = ">=3.11"
 authors = [
-    { name = "Finnoybu IP LLC" },
+    { name = "AEGIS Operations LLC" },
 ]
 classifiers = [
     "Development Status :: 2 - Pre-Alpha",

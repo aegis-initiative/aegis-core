@@ -233,5 +233,4 @@ python -m pytest tests/ -v
 ---
 
 *This report was generated from adversarial testing conducted on 2026-03-30 against aegis-core
-commit history. The AEGIS governance runtime is developed by the AEGIS Initiative
-(Finnoybu IP LLC).*
+commit history. The AEGIS governance runtime is developed by the AEGIS Initiative.*
