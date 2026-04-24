@@ -63,16 +63,16 @@ The enforcement pipeline follows the AGP-1 protocol flow:
 
 ## Related Repos
 
-- **aegis** (aegis-initiative/aegis) — Governance specs, ADRs, and JSON Schema
-  definitions that this engine implements
-- **aegis-platform** (aegis-initiative/aegis-platform) — Production platform
-  that consumes this engine as a library
+- **aegis-governance** (aegis-initiative/aegis-governance) — Architectural
+  specs, RFCs, and JSON Schema definitions this engine implements (public)
 - **aegis-sdk** (aegis-initiative/aegis-sdk) — Client SDK that exposes a
-  subset of this engine's capabilities
-- **aegis-ops** (aegis-initiative/aegis-ops) — CI/CD workflows, deployment
-  configs, infrastructure
+  subset of this engine's capabilities (public)
 - **aegis-labs** (aegis-initiative/aegis-labs) — Experimental versions and
   research spikes for new scoring models
+- **aegis-ops** (aegis-initiative/aegis-ops) — CI/CD workflows, deployment
+  configs, infrastructure
+- **aegis-platform** (aegis-initiative/aegis-platform) — Production platform
+  that consumes this engine as a library
 
 ## Stack
 
