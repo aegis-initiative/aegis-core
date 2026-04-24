@@ -79,7 +79,7 @@ The enforcement pipeline follows the AGP-1 protocol flow:
 - **Python 3.11+** — Reference implementation (stdlib only, zero dependencies)
 - **Rust** (future) — Production runtime
 - **JSON Schema** — Cross-language interface contracts
-- **pytest** — Python test framework (403 tests, 100% ATX-1 coverage)
+- **pytest** — Python test framework (419 tests, 100% ATX-1 coverage)
 
 ## Key Conventions
 

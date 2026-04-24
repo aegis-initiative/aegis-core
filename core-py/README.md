@@ -3,7 +3,7 @@
 ![Python](https://img.shields.io/badge/python-3.11+-blue)
 ![Status](https://img.shields.io/badge/status-alpha-orange)
 ![License](https://img.shields.io/badge/license-Apache%202.0-blue)
-![Tests](https://img.shields.io/badge/tests-403%20passing-brightgreen)
+![Tests](https://img.shields.io/badge/tests-419%20passing-brightgreen)
 
 The AEGIS Runtime is the **reference Python implementation** of the AEGIS
 governance architecture. It provides a deterministic enforcement layer that
@@ -121,7 +121,7 @@ If governance denies the action, the call raises a `PermissionError`.
 pytest
 ```
 
-The test suite includes 403 tests: core module tests, integration tests,
+The test suite includes 419 tests: core module tests, integration tests,
 and a comprehensive security test suite with 100% ATX-1 technique coverage.
 
 ---
@@ -160,7 +160,7 @@ core-py/
 │   ├── protocol.py       # AGP-1 wire protocol
 │   ├── exceptions.py     # Structured error hierarchy
 │   └── errors.py         # Error code catalog
-├── tests/                # Test suite (403 tests)
+├── tests/                # Test suite (419 tests)
 ├── data/                 # Coverage and test data
 ├── pyproject.toml        # Package configuration
 └── SECURITY_TESTING.md   # Red/blue team assessment report

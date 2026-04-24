@@ -3,8 +3,11 @@
 # Default Repository Owner(s)
 * @finnoybu
 
-# Governance Runtime Engine
-/src/ @finnoybu
+# Python Reference Implementation
+/core-py/ @finnoybu
+
+# Rust Production Runtime (future)
+/core-rs/ @finnoybu
 
 # JSON Schemas
 /schemas/ @finnoybu
