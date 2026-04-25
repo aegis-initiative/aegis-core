@@ -162,8 +162,7 @@ core-py/
 │   └── errors.py         # Error code catalog
 ├── tests/                # Test suite (419 tests)
 ├── data/                 # Coverage and test data
-├── pyproject.toml        # Package configuration
-└── SECURITY_TESTING.md   # Red/blue team assessment report
+└── pyproject.toml        # Package configuration
 ```
 
 ---
