@@ -23,7 +23,7 @@ Use :class:`AEGISRuntime` for the simplest integration::
     proxy.call("my_tool", arg="value")
 """
 
-from . import errors
+from . import errors, governance
 from .audit import AuditRecord, AuditSystem
 from .capability_registry import Capability, CapabilityRegistry
 from .decision_engine import DecisionEngine
@@ -83,4 +83,5 @@ __all__ = [
     "PolicyResult",
     "ToolProxy",
     "errors",
+    "governance",
 ]

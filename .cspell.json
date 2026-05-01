@@ -14,7 +14,9 @@
     "metacharacter", "metacharacters", "mypy", "NFKC", "nohup",
     "normpath", "posixpath", "pyproject", "pytest", "sandboxing",
     "setattr", "stdlib", "subtechnique", "TOCTOU", "venv", "wipefs",
-    "dataclass", "isort", "trippable"
+    "dataclass", "isort", "trippable",
+    "Rego", "rego", "Cedar", "cedar", "cedarpy", "pyyaml", "OPA",
+    "snake", "Pascal", "PascalCase", "pyproject"
   ],
   "ignorePaths": [
     "node_modules/**",

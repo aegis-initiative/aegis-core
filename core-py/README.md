@@ -3,7 +3,7 @@
 ![Python](https://img.shields.io/badge/python-3.11+-blue)
 ![Status](https://img.shields.io/badge/status-alpha-orange)
 ![License](https://img.shields.io/badge/license-Apache%202.0-blue)
-![Tests](https://img.shields.io/badge/tests-419%20passing-brightgreen)
+![Tests](https://img.shields.io/badge/tests-464%20passing-brightgreen)
 
 The AEGIS Runtime is the **reference Python implementation** of the AEGIS
 governance architecture. It provides a deterministic enforcement layer that
@@ -159,10 +159,55 @@ core-py/
 │   ├── tool_proxy.py     # Tool interception layer
 │   ├── protocol.py       # AGP-1 wire protocol
 │   ├── exceptions.py     # Structured error hierarchy
-│   └── errors.py         # Error code catalog
-├── tests/                # Test suite (419 tests)
+│   ├── errors.py         # Error code catalog
+│   └── governance/       # Declarative governance profiles
+│       └── profile.py    # YAML → Cedar / Rego compiler
+├── tests/                # Test suite (464 tests)
 ├── data/                 # Coverage and test data
 └── pyproject.toml        # Package configuration
+```
+
+---
+
+## Governance Profiles (`aegis_core.governance`)
+
+`aegis_core.governance` provides a declarative authoring surface above
+Cedar and OPA / Rego. A single AEGIS Governance Profile (YAML) describes
+*what an agent class is permitted to do* — role, allowed and denied
+actions, resource scopes, optional delegation rules — and the compiler
+emits idiomatic Cedar and Rego policies from one source of truth.
+
+A standalone subset of the same compiler is also published as a
+community example contribution to Microsoft's
+[Agent Governance Toolkit](https://github.com/microsoft/agent-governance-toolkit)
+at `examples/aegis-governance-profile/`. The `aegis_core.governance`
+version adds AEGIS-only opt-in extensions:
+
+* `atx1_techniques` — link the profile to the ATX-1 threat techniques
+  it mitigates (informational header in emitted policies).
+* `agp_trace_id` — AGP-1 trace identifier, embedded in the policy
+  header for cross-referencing in AGP-1 audit records.
+* `delegation` — declarative delegation depth caps and allow-listed
+  delegate roles, compiled into additional Cedar `forbid` clauses and
+  Rego deny rules.
+
+When all extension fields are absent, the compiler output is byte-identical
+to the standalone subset (verified by
+`tests/governance/test_profile.py::TestSubsetParity`).
+
+YAML loading requires PyYAML, exposed via the `governance` extra:
+
+```bash
+pip install -e ".[governance]"
+```
+
+Dict-based loading (no extra) is always available:
+
+```python
+from aegis_core.governance import compile_to_cedar, load_profile_from_dict
+
+profile = load_profile_from_dict({...})
+cedar_policy = compile_to_cedar(profile)
 ```
 
 ---
