@@ -9,6 +9,31 @@ and versions are synchronized with the main [AEGIS Initiative Changelog](../CHAN
 
 ---
 
+# [Unreleased]
+
+## Added
+
+- **`aegis_core.governance` subpackage** — declarative AEGIS Governance
+  Profiles compiler. A single profile (YAML or dict) compiles to
+  equivalent Cedar and Rego policies for downstream policy engines.
+  AEGIS-only extensions: `atx1_techniques` (ATX-1 threat-technique
+  linkage), `agp_trace_id` (AGP-1 trace identifiers), `delegation`
+  (declarative delegation depth caps and allow-listed delegate roles).
+  When all extensions are absent, output is byte-identical to the
+  standalone subset published as a community example contribution at
+  `examples/aegis-governance-profile/` in
+  `microsoft/agent-governance-toolkit`. Subset parity is enforced by
+  `tests/governance/test_profile.py::TestSubsetParity`.
+- **`pyyaml>=6.0` available via `pip install aegis-core[governance]`** —
+  optional extra. Dict-based loading via
+  `load_profile_from_dict` requires no extra dependency; YAML loading
+  via `load_profile_from_yaml` requires the extra.
+- **45 tests** under `tests/governance/` covering loader validation
+  (basic schema and AEGIS extensions), compiler output shape,
+  determinism, and subset parity.
+
+---
+
 # [0.1.3] — 2026-04-12
 
 **Status:** STABLE — adds the RFC-0005 RDP-03 (Embedded Lightweight) file-based
