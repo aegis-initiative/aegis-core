@@ -210,9 +210,7 @@ def load_profile_from_yaml(path: Path | str) -> GovernanceProfile:
     return _build_profile(raw, source=str(file_path))
 
 
-def load_profile_from_dict(
-    raw: Mapping[str, Any], *, source: str = "<dict>"
-) -> GovernanceProfile:
+def load_profile_from_dict(raw: Mapping[str, Any], *, source: str = "<dict>") -> GovernanceProfile:
     """Load and validate a profile from an in-memory mapping.
 
     Useful when the profile source is already parsed (JSON, programmatic
@@ -225,12 +223,8 @@ def load_profile_from_dict(
 def _build_profile(raw: dict[str, Any], *, source: str) -> GovernanceProfile:
     metadata = _build_metadata(_require(raw, "profile", source, dict), source)
     principal = _build_principal(_require(raw, "principal", source, dict), source)
-    capabilities = _build_capabilities(
-        _require(raw, "capabilities", source, dict), source
-    )
-    resource_scopes = _build_resource_scopes(
-        _require(raw, "resource_scopes", source, dict), source
-    )
+    capabilities = _build_capabilities(_require(raw, "capabilities", source, dict), source)
+    resource_scopes = _build_resource_scopes(_require(raw, "resource_scopes", source, dict), source)
 
     overlap = set(capabilities.allowed_actions) & set(capabilities.denied_actions)
     if overlap:
@@ -239,9 +233,7 @@ def _build_profile(raw: dict[str, Any], *, source: str) -> GovernanceProfile:
             f"overlap: {sorted(overlap)}"
         )
 
-    pattern_overlap = set(resource_scopes.allowed_patterns) & set(
-        resource_scopes.denied_patterns
-    )
+    pattern_overlap = set(resource_scopes.allowed_patterns) & set(resource_scopes.denied_patterns)
     if pattern_overlap:
         raise ProfileError(
             f"{source}: resource_scopes.allowed_patterns and "
@@ -274,9 +266,7 @@ def _build_metadata(raw: dict[str, Any], source: str) -> ProfileMetadata:
 def _build_principal(raw: dict[str, Any], source: str) -> Principal:
     role = _require_str(raw, "role", f"{source}:principal")
     if not _is_snake_case(role):
-        raise ProfileError(
-            f"{source}:principal.role must be snake_case, got {role!r}"
-        )
+        raise ProfileError(f"{source}:principal.role must be snake_case, got {role!r}")
     return Principal(role=role)
 
 
@@ -287,12 +277,8 @@ def _build_capabilities(raw: dict[str, Any], source: str) -> Capabilities:
 
 
 def _build_resource_scopes(raw: dict[str, Any], source: str) -> ResourceScopes:
-    allowed = _require_pattern_list(
-        raw, "allowed_patterns", f"{source}:resource_scopes"
-    )
-    denied = _require_pattern_list(
-        raw, "denied_patterns", f"{source}:resource_scopes"
-    )
+    allowed = _require_pattern_list(raw, "allowed_patterns", f"{source}:resource_scopes")
+    denied = _require_pattern_list(raw, "denied_patterns", f"{source}:resource_scopes")
     return ResourceScopes(allowed_patterns=allowed, denied_patterns=denied)
 
 
@@ -301,15 +287,12 @@ def _build_atx1_techniques(raw: dict[str, Any], source: str) -> tuple[str, ...]:
         return ()
     items = raw["atx1_techniques"]
     if not isinstance(items, list):
-        raise ProfileError(
-            f"{source}:atx1_techniques must be a list, got {type(items).__name__}"
-        )
+        raise ProfileError(f"{source}:atx1_techniques must be a list, got {type(items).__name__}")
     out: list[str] = []
     for index, item in enumerate(items):
         if not isinstance(item, str):
             raise ProfileError(
-                f"{source}:atx1_techniques[{index}] must be a string, "
-                f"got {type(item).__name__}"
+                f"{source}:atx1_techniques[{index}] must be a string, got {type(item).__name__}"
             )
         if not _is_atx1_technique_id(item):
             raise ProfileError(
@@ -317,9 +300,7 @@ def _build_atx1_techniques(raw: dict[str, Any], source: str) -> tuple[str, ...]:
                 f"technique ID format 'ATX-1.T-N-N', got {item!r}"
             )
         if item in out:
-            raise ProfileError(
-                f"{source}:atx1_techniques contains duplicate {item!r}"
-            )
+            raise ProfileError(f"{source}:atx1_techniques contains duplicate {item!r}")
         out.append(item)
     return tuple(out)
 
@@ -331,9 +312,7 @@ def _build_agp_trace_id(raw: dict[str, Any], source: str) -> str | None:
     if value is None:
         return None
     if not isinstance(value, str):
-        raise ProfileError(
-            f"{source}:agp_trace_id must be a string, got {type(value).__name__}"
-        )
+        raise ProfileError(f"{source}:agp_trace_id must be a string, got {type(value).__name__}")
     if not value.strip():
         raise ProfileError(f"{source}:agp_trace_id must be non-empty if present")
     return value
@@ -346,15 +325,12 @@ def _build_delegation(raw: dict[str, Any], source: str) -> DelegationRules | Non
     if block is None:
         return None
     if not isinstance(block, dict):
-        raise ProfileError(
-            f"{source}:delegation must be a mapping, got {type(block).__name__}"
-        )
+        raise ProfileError(f"{source}:delegation must be a mapping, got {type(block).__name__}")
 
     max_depth = _require(block, "max_depth", f"{source}:delegation", int)
     if isinstance(max_depth, bool) or max_depth < 0:
         raise ProfileError(
-            f"{source}:delegation.max_depth must be a non-negative integer, "
-            f"got {max_depth!r}"
+            f"{source}:delegation.max_depth must be a non-negative integer, got {max_depth!r}"
         )
 
     may = _require(block, "may_delegate_to", f"{source}:delegation", list)
@@ -365,15 +341,13 @@ def _build_delegation(raw: dict[str, Any], source: str) -> DelegationRules | Non
                 f"{source}:delegation.may_delegate_to[{index}] must be a string, "
                 f"got {type(item).__name__}"
             )
-        if not item.startswith("role:") or not _is_snake_case(item[len("role:"):]):
+        if not item.startswith("role:") or not _is_snake_case(item[len("role:") :]):
             raise ProfileError(
                 f"{source}:delegation.may_delegate_to[{index}] must match "
                 f"'role:<snake_case>', got {item!r}"
             )
         if item in out:
-            raise ProfileError(
-                f"{source}:delegation.may_delegate_to contains duplicate {item!r}"
-            )
+            raise ProfileError(f"{source}:delegation.may_delegate_to contains duplicate {item!r}")
         out.append(item)
     return DelegationRules(max_depth=int(max_depth), may_delegate_to=tuple(out))
 
@@ -381,20 +355,15 @@ def _build_delegation(raw: dict[str, Any], source: str) -> DelegationRules | Non
 # ── Validators ────────────────────────────────────────────────
 
 
-def _require(
-    raw: dict[str, Any], key: str, source: str, expected_type: type
-) -> Any:
+def _require(raw: dict[str, Any], key: str, source: str, expected_type: type) -> Any:
     if key not in raw:
         raise ProfileError(f"{source}: missing required key {key!r}")
     value = raw[key]
     if expected_type is int and isinstance(value, bool):
-        raise ProfileError(
-            f"{source}: {key!r} must be int, got bool"
-        )
+        raise ProfileError(f"{source}: {key!r} must be int, got bool")
     if not isinstance(value, expected_type):
         raise ProfileError(
-            f"{source}: {key!r} must be {expected_type.__name__}, "
-            f"got {type(value).__name__}"
+            f"{source}: {key!r} must be {expected_type.__name__}, got {type(value).__name__}"
         )
     return value
 
@@ -406,9 +375,7 @@ def _require_str(raw: dict[str, Any], key: str, source: str) -> str:
     return str(value)
 
 
-def _require_action_list(
-    raw: dict[str, Any], key: str, source: str
-) -> tuple[str, ...]:
+def _require_action_list(raw: dict[str, Any], key: str, source: str) -> tuple[str, ...]:
     items = _require(raw, key, source, list)
     if not items:
         raise ProfileError(f"{source}: {key!r} must be non-empty")
@@ -416,22 +383,17 @@ def _require_action_list(
     for index, item in enumerate(items):
         if not isinstance(item, str):
             raise ProfileError(
-                f"{source}: {key}[{index}] must be a string, "
-                f"got {type(item).__name__}"
+                f"{source}: {key}[{index}] must be a string, got {type(item).__name__}"
             )
         if not _is_snake_case(item):
-            raise ProfileError(
-                f"{source}: {key}[{index}] must be snake_case, got {item!r}"
-            )
+            raise ProfileError(f"{source}: {key}[{index}] must be snake_case, got {item!r}")
         if item in out:
             raise ProfileError(f"{source}: {key} contains duplicate {item!r}")
         out.append(item)
     return tuple(out)
 
 
-def _require_pattern_list(
-    raw: dict[str, Any], key: str, source: str
-) -> tuple[str, ...]:
+def _require_pattern_list(raw: dict[str, Any], key: str, source: str) -> tuple[str, ...]:
     items = _require(raw, key, source, list)
     if not items:
         raise ProfileError(f"{source}: {key!r} must be non-empty")
@@ -439,18 +401,15 @@ def _require_pattern_list(
     for index, item in enumerate(items):
         if not isinstance(item, str):
             raise ProfileError(
-                f"{source}: {key}[{index}] must be a string, "
-                f"got {type(item).__name__}"
+                f"{source}: {key}[{index}] must be a string, got {type(item).__name__}"
             )
         if not item.endswith("/*"):
             raise ProfileError(
-                f"{source}: {key}[{index}] must end with '/*' "
-                f"(prefix glob), got {item!r}"
+                f"{source}: {key}[{index}] must end with '/*' (prefix glob), got {item!r}"
             )
         if '"' in item or "\\" in item:
             raise ProfileError(
-                f"{source}: {key}[{index}] must not contain backslash "
-                f"or double quote, got {item!r}"
+                f"{source}: {key}[{index}] must not contain backslash or double quote, got {item!r}"
             )
         if item in out:
             raise ProfileError(f"{source}: {key} contains duplicate {item!r}")
@@ -463,17 +422,14 @@ def _is_snake_case(value: str) -> bool:
         return False
     if not value[0].isalpha():
         return False
-    return (
-        all(c.islower() or c.isdigit() or c == "_" for c in value)
-        and "__" not in value
-    )
+    return all(c.islower() or c.isdigit() or c == "_" for c in value) and "__" not in value
 
 
 def _is_atx1_technique_id(value: str) -> bool:
     """ATX-1 technique IDs look like ``ATX-1.T-2-3`` or ``ATX-1.T-10-1``."""
     if not value.startswith("ATX-1.T-"):
         return False
-    body = value[len("ATX-1.T-"):]
+    body = value[len("ATX-1.T-") :]
     parts = body.split("-")
     return len(parts) == 2 and all(p.isdigit() and p for p in parts)
 
@@ -494,9 +450,7 @@ def _cedar_action_list(actions: tuple[str, ...]) -> str:
     return ",\n        ".join(f'Action::"{snake_to_pascal(a)}"' for a in actions)
 
 
-def _cedar_pattern_disjunction(
-    patterns: tuple[str, ...], context_field: str, indent: int
-) -> str:
+def _cedar_pattern_disjunction(patterns: tuple[str, ...], context_field: str, indent: int) -> str:
     sep = " ||\n" + " " * indent
     return sep.join(f'context.{context_field} like "{p}"' for p in patterns)
 
@@ -602,7 +556,7 @@ def _cedar_delegation_block(profile: GovernanceProfile) -> str | None:
         "    resource\n"
         ")\n"
         "when {\n"
-        f"    context has \"delegation_depth\" && context.delegation_depth > {rule.max_depth}\n"
+        f'    context has "delegation_depth" && context.delegation_depth > {rule.max_depth}\n'
         "};\n"
     )
 
@@ -632,12 +586,8 @@ def compile_to_rego(profile: GovernanceProfile) -> str:
     extensions appear as informational header comments and, in the
     case of ``delegation``, as an additional ``deny`` rule.
     """
-    allowed_prefixes = tuple(
-        _scope_prefix(p) for p in profile.resource_scopes.allowed_patterns
-    )
-    denied_prefixes = tuple(
-        _scope_prefix(p) for p in profile.resource_scopes.denied_patterns
-    )
+    allowed_prefixes = tuple(_scope_prefix(p) for p in profile.resource_scopes.allowed_patterns)
+    denied_prefixes = tuple(_scope_prefix(p) for p in profile.resource_scopes.denied_patterns)
 
     header = (
         f"# AEGIS Governance Profile: {profile.metadata.profile_id} "

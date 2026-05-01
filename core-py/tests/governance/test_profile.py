@@ -200,18 +200,18 @@ class TestLoaderExtensions:
 class TestLoaderYaml:
     def test_loads_yaml_file(self, tmp_path: Path) -> None:
         yaml_text = (
-            'profile:\n'
-            '  id: research-agent-standard\n'
+            "profile:\n"
+            "  id: research-agent-standard\n"
             '  version: "1.0.0"\n'
-            '  description: Standard governance profile for research-class agents\n'
-            'principal:\n'
-            '  role: researcher\n'
-            'capabilities:\n'
-            '  allowed_actions:\n'
-            '    - web_search\n'
-            '  denied_actions:\n'
-            '    - file_write\n'
-            'resource_scopes:\n'
+            "  description: Standard governance profile for research-class agents\n"
+            "principal:\n"
+            "  role: researcher\n"
+            "capabilities:\n"
+            "  allowed_actions:\n"
+            "    - web_search\n"
+            "  denied_actions:\n"
+            "    - file_write\n"
+            "resource_scopes:\n"
             '  allowed_patterns: ["public/*"]\n'
             '  denied_patterns: ["customer/pii/*"]\n'
         )
@@ -269,7 +269,7 @@ class TestCompileToCedarBasic:
         # Locate the explicit denied-actions forbid block by its comment header.
         marker = "// Forbid denied actions outright"
         assert marker in out
-        denied_block = out[out.index(marker):]
+        denied_block = out[out.index(marker) :]
         assert 'Action::"FileWrite"' in denied_block
         assert 'Action::"ShellExec"' in denied_block
 
