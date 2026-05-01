@@ -31,6 +31,7 @@ dev = [
     "ruff>=0.4",
     "mypy>=1.10",
     "types-PyYAML>=6.0",
+    "pyyaml>=6.0",
 ]
 # Governance Profile compiler (aegis_core.governance) — YAML loading
 governance = [
