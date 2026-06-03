@@ -16,7 +16,7 @@
     "setattr", "stdlib", "subtechnique", "TOCTOU", "venv", "wipefs",
     "dataclass", "isort", "trippable",
     "Rego", "rego", "Cedar", "cedar", "cedarpy", "pyyaml", "OPA",
-    "snake", "Pascal", "PascalCase", "pyproject"
+    "snake", "Pascal", "PascalCase", "pyproject", "CODEOWNERS"
   ],
   "ignorePaths": [
     "node_modules/**",
