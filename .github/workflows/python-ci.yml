@@ -1,15 +1,15 @@
 name: Python CI
 on:
   push:
-    paths: ['core-py/**']
+    paths: ['packages/core-py/**']
   pull_request:
-    paths: ['core-py/**']
+    paths: ['packages/core-py/**']
 jobs:
   test:
     runs-on: ubuntu-latest
     defaults:
       run:
-        working-directory: core-py
+        working-directory: packages/core-py
     steps:
       - uses: actions/checkout@v6
       - uses: actions/setup-python@v6

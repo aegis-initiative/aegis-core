@@ -25,19 +25,19 @@ library and is independently testable.
 
 ## Dual-Language Strategy
 
-- **core-py/** — Python reference implementation (active development). Used for
+- **packages/core-py/** — Python reference implementation (active development). Used for
   prototyping, correctness validation, and environments where Python is the
   runtime. All new governance logic lands here first.
-- **core-rs/** — Rust production runtime (future). A faithful port of core-py
+- **packages/core-rs/** — Rust production runtime (future). A faithful port of core-py
   optimized for low-latency, high-throughput policy evaluation. Will share the
   same JSON Schema interfaces and pass the same integration test suite.
 - **schemas/** — Language-agnostic JSON Schema definitions shared between both
   implementations. These are the canonical interface contracts.
 
-## Package Structure (core-py)
+## Package Structure (packages/core-py)
 
 ```text
-core-py/aegis_core/
+packages/core-py/aegis_core/
 ├── gateway.py            — Governance gateway: validates requests, dispatches to pipeline
 ├── decision_engine.py    — Three-stage evaluation: capability → policy → risk
 ├── capability_registry.py — Capability-based access control with temporal expiry
