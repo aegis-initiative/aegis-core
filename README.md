@@ -171,4 +171,4 @@ schemas/
 
 Licensed under the [Apache License 2.0](LICENSE). See LICENSE for details.
 
-AEGIS™ and **"Capability without constraint is not intelligence™"** are trademarks of **AEGIS Operations LLC**.
+AEGIS™ and **"Capability without constraint is not intelligence™"** are trademarks of **AEGIS Initiative**.

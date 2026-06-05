@@ -79,8 +79,8 @@ community example is enforced by test.
 ## Identifier registry
 
 - **GitHub Org**: [github.com/aegis-initiative](https://github.com/aegis-initiative)
-- **Operating Entity**: AEGIS Operations LLC
-- **Trademark Owner**: AEGIS Operations LLC (public attribution rule — internal IP-holder context lives in the
+- **Operating Entity**: AEGIS Initiative
+- **Trademark Owner**: AEGIS Initiative (public attribution rule — internal IP-holder context lives in the
   workspace CLAUDE.md, never in public repo content)
 - **Domain**: aegis-core.net
 - **Protocol**: AGP-1 (AEGIS Governance Protocol)
