@@ -10,7 +10,7 @@ governance architecture. It provides a deterministic enforcement layer that
 evaluates and governs AI-initiated actions **before they interact with
 infrastructure**.
 
-> **Capability without constraint is not intelligence™**
+> **Capability without constraint is not intelligence®**
 
 ---
 
@@ -243,4 +243,4 @@ with full JSON serialization.
 
 Licensed under the [Apache License 2.0](LICENSE). See LICENSE for details.
 
-AEGIS™ and **"Capability without constraint is not intelligence™"** are trademarks of **AEGIS Initiative**.
+AEGIS™ and **"Capability without constraint is not intelligence®"** are trademarks of **AEGIS Initiative**.

@@ -38,7 +38,7 @@ It implements the **governance runtime layer** that enforces deterministic
 control over AI-generated actions before they interact with operational
 infrastructure.
 
-> **Capability without constraint is not intelligence™**
+> **Capability without constraint is not intelligence®**
 
 ---
 
@@ -171,4 +171,4 @@ schemas/
 
 Licensed under the [Apache License 2.0](LICENSE). See LICENSE for details.
 
-AEGIS™ and **"Capability without constraint is not intelligence™"** are trademarks of **AEGIS Initiative**.
+AEGIS™ and **"Capability without constraint is not intelligence®"** are trademarks of **AEGIS Initiative**.
