@@ -44,11 +44,42 @@ class TestAEGISErrorBase:
 
     def test_auto_help_url_from_error_code(self):
         err = AEGISError("bad", error_code="AEGIS-VAL-001")
-        assert err.help_url == "https://aegis-docs.com/errors/aegis_val_001"
+        assert err.help_url == "https://aegis-docs.com/sdk/errors/#validation-errors-aegis-val"
 
     def test_auto_help_url_default_code(self):
         err = AEGISError("bad")
-        assert err.help_url == "https://aegis-docs.com/errors/aegis_error"
+        assert err.help_url == "https://aegis-docs.com/sdk/errors/"
+
+    @pytest.mark.parametrize(
+        ("code", "anchor"),
+        [
+            ("AEGIS-VAL-010", "validation-errors-aegis-val"),
+            ("AEGIS-CAP-002", "capability-errors-aegis-cap"),
+            ("AEGIS-POL-003", "policy-errors-aegis-pol"),
+            ("AEGIS-AUD-001", "audit-errors-aegis-aud"),
+        ],
+    )
+    def test_auto_help_url_category_anchor(self, code, anchor):
+        err = AEGISError("bad", error_code=code)
+        assert err.help_url == f"https://aegis-docs.com/sdk/errors/#{anchor}"
+
+    def test_auto_help_url_undocumented_category(self):
+        # Categories without a section on the reference page link to the page.
+        err = AEGISError("bad", error_code="AEGIS-GW-001")
+        assert err.help_url == "https://aegis-docs.com/sdk/errors/"
+
+    @pytest.mark.parametrize(
+        ("cls", "anchor"),
+        [
+            (AEGISValidationError, "validation-errors-aegis-val"),
+            (AEGISCapabilityError, "capability-errors-aegis-cap"),
+            (AEGISPolicyError, "policy-errors-aegis-pol"),
+            (AEGISAuditError, "audit-errors-aegis-aud"),
+        ],
+    )
+    def test_auto_help_url_class_default_code(self, cls, anchor):
+        err = cls("bad")
+        assert err.help_url == f"https://aegis-docs.com/sdk/errors/#{anchor}"
 
     def test_str_format(self):
         err = AEGISError("something broke", error_code="AEGIS-VAL-001")
@@ -69,7 +100,7 @@ class TestAEGISErrorBase:
         assert d["error_code"] == "AEGIS-VAL-002"
         assert d["message"] == "bad input"
         assert d["cause"] == "request.agent_id"
-        assert d["help_url"] == "https://aegis-docs.com/errors/aegis_val_002"
+        assert d["help_url"] == "https://aegis-docs.com/sdk/errors/#validation-errors-aegis-val"
 
     def test_to_dict_none_cause(self):
         err = AEGISError("bad")
@@ -135,7 +166,7 @@ class TestSubclassInheritance:
     def test_cause_and_help_url(self, cls):
         err = cls("msg", error_code="AEGIS-X-001", cause="field.name")
         assert err.cause == "field.name"
-        assert "aegis_x_001" in err.help_url
+        assert err.help_url == "https://aegis-docs.com/sdk/errors/"
 
     @pytest.mark.parametrize(
         "cls",
@@ -245,7 +276,7 @@ class TestErrorIntegration:
         )
         assert err.error_code == "AEGIS-VAL-002"
         assert err.cause == "request.agent_id"
-        assert "aegis_val_002" in err.help_url
+        assert err.help_url.endswith("#validation-errors-aegis-val")
         assert str(err) == "[AEGIS-VAL-002] agent_id is required but was empty or whitespace-only"
 
     def test_capability_error_with_catalog_code(self):

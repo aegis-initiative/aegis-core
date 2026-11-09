@@ -10,10 +10,32 @@ method serializes all fields for JSON API responses.
 
 from __future__ import annotations
 
+import re
 from typing import Any
 
-# Base URL for error documentation
-_DOCS_BASE_URL = "https://aegis-docs.com/errors"
+# Error reference page on aegis-docs.com. Help URLs link to the section for
+# the error's category; codes without a documented section link to the page.
+_DOCS_BASE_URL = "https://aegis-docs.com/sdk/errors/"
+
+# Section anchors on the error reference page, keyed by error category
+# (the CAT in AEGIS-{CAT}-{NNN}).
+_CATEGORY_ANCHORS: dict[str, str] = {
+    "VAL": "validation-errors-aegis-val",
+    "CAP": "capability-errors-aegis-cap",
+    "POL": "policy-errors-aegis-pol",
+    "AUD": "audit-errors-aegis-aud",
+}
+
+# Category for the class-level default codes, used when an exception is
+# raised without a specific AEGIS-{CAT}-{NNN} code.
+_DEFAULT_CODE_CATEGORIES: dict[str, str] = {
+    "VALIDATION_ERROR": "VAL",
+    "CAPABILITY_ERROR": "CAP",
+    "POLICY_ERROR": "POL",
+    "AUDIT_ERROR": "AUD",
+}
+
+_CODE_PATTERN = re.compile(r"^AEGIS-([A-Z]+)-\d+$")
 
 
 class AEGISError(Exception):
@@ -62,9 +84,16 @@ class AEGISError(Exception):
         self.help_url = help_url if help_url is not None else self._build_help_url()
 
     def _build_help_url(self) -> str:
-        """Generate a documentation URL from the error code."""
-        code = self.error_code.lower().replace("-", "_")
-        return f"{_DOCS_BASE_URL}/{code}"
+        """Generate a documentation URL from the error code.
+
+        Links to the error reference page, at the section for the code's
+        category when one is documented (e.g. ``AEGIS-VAL-010`` links to
+        ``#validation-errors-aegis-val``).
+        """
+        match = _CODE_PATTERN.match(self.error_code)
+        category = match.group(1) if match else _DEFAULT_CODE_CATEGORIES.get(self.error_code)
+        anchor = _CATEGORY_ANCHORS.get(category or "")
+        return f"{_DOCS_BASE_URL}#{anchor}" if anchor else _DOCS_BASE_URL
 
     def to_dict(self) -> dict[str, Any]:
         """Return a structured dictionary suitable for JSON API responses.
