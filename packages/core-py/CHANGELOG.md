@@ -32,6 +32,17 @@ and versions are synchronized with the main [AEGIS Initiative Changelog](../CHAN
   (basic schema and AEGIS extensions), compiler output shape,
   determinism, and subset parity.
 
+## Fixed
+
+- **Error help URLs now resolve.** `AEGISError.help_url` previously pointed
+  at `https://aegis-docs.com/errors/<code>`, a path with no page behind it.
+  It now links to the error reference at `https://aegis-docs.com/sdk/errors/`,
+  at the section for the code's category (`AEGIS-VAL`, `-CAP`, `-POL`,
+  `-AUD`, and the class-level defaults such as `VALIDATION_ERROR`). Codes
+  without a documented section (e.g. `AEGIS-GW`, `AEGIS-DEC`) link to the
+  page itself. aegis-docs also redirects the old `/errors/<code>` paths, so
+  URLs from earlier releases keep working.
+
 ---
 
 # [0.1.3] — 2026-04-12
